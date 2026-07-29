@@ -1,6 +1,6 @@
-# അരങ്ങം · ARANGAM 2025–26
+# അങ്കം · ANKAM 2025–26
 
-The website for **Arangam**, the interbatch sports meet of the Agastya Students' Union,
+The website for **Ankam**, the interbatch sports meet of the Agastya Students' Union,
 Kerala Agricultural University, College of Agriculture, Vellayani.
 
 Live standings, the programme with its points table, event-by-event results, and the individual
@@ -43,7 +43,7 @@ on the athletics events. **None of that is fixed** — see below.
 
 ## Results desk
 
-`/desk` — passcode **`arangam@desk2526`**, or set `VITE_DESK_PASSCODE` to change it.
+`/desk` — passcode **`ankam@desk2526`**, or set `VITE_DESK_PASSCODE` to change it.
 
 | Tab | What it does |
 | --- | --- |
@@ -70,7 +70,7 @@ npx convex env set DESK_PASSCODE '<passcode>' --prod   # production
 ```
 
 Without a deployment the app is a single-browser scratchpad, so the check is local and
-`VITE_DESK_PASSCODE` (default `arangam-local`) is a placeholder rather than a secret.
+`VITE_DESK_PASSCODE` (default `ankam-local`) is a placeholder rather than a secret.
 
 Two limits worth knowing: everyone at the desk shares one passcode, so there is no audit trail
 of who changed what; and `checkPasscode` is not rate-limited, so use a passcode long enough
@@ -100,9 +100,10 @@ unchanged.
 
 | | |
 | --- | --- |
-| Site | https://vldevadath.github.io/arangam-website/ |
-| Results desk | https://vldevadath.github.io/arangam-website/desk |
-| Convex dashboard | https://dashboard.convex.dev/t/devadath-v-l/arangam-website |
+| Site | https://ankam-2526.netlify.app |
+| Mirror | https://vldevadath.github.io/ankam-website/ |
+| Results desk | https://ankam-2526.netlify.app/desk |
+| Convex dashboard | https://dashboard.convex.dev/t/devadath-v-l/ankam-website |
 | Production database | `https://valiant-buzzard-674.convex.cloud` |
 
 **Back up daily** from Desk → Data → Export JSON. Clearing results cannot be undone.

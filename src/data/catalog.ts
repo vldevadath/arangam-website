@@ -126,8 +126,8 @@ export function makeEventId(name: string, taken: Iterable<string>): string {
 // ─── Meet identity ──────────────────────────────────────────────────────────
 
 export const MEET = {
-  nameMl: 'അരങ്ങം',
-  name: 'ARANGAM',
+  nameMl: 'അങ്കം',
+  name: 'ANKAM',
   edition: '2025–2026',
   tagline: 'Interbatch Sports',
   union: "Agastya Students' Union 25–26",

@@ -13,7 +13,7 @@ import DeskLogin from './pages/DeskLogin';
 import Desk from './pages/Desk';
 import NotFound from './pages/NotFound';
 
-const SEEN_KEY = 'arangam:ceremony-seen';
+const SEEN_KEY = 'ankam:ceremony-seen';
 
 export default function App() {
   const { pathname } = useLocation();

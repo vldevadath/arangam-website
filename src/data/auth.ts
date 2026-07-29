@@ -13,11 +13,11 @@
 import { anyApi } from 'convex/server';
 import { convexClient, USING_CONVEX } from './convexClient';
 
-const SESSION_KEY = 'arangam:desk-session';
+const SESSION_KEY = 'ankam:desk-session';
 const SESSION_HOURS = 8;
 
 /** Only used when there is no Convex deployment. Not a secret. */
-const LOCAL_PASSCODE = import.meta.env.VITE_DESK_PASSCODE || 'arangam-local';
+const LOCAL_PASSCODE = import.meta.env.VITE_DESK_PASSCODE || 'ankam-local';
 
 type Session = { passcode: string; expires: number };
 

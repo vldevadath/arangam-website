@@ -743,7 +743,7 @@ function DataTab({ snapshot, actions }: { snapshot: Snapshot; actions: Actions }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `arangam-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `ankam-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -776,7 +776,7 @@ function DataTab({ snapshot, actions }: { snapshot: Snapshot; actions: Actions }
         }
         setMessage(`Imported ${Object.keys(data.results ?? {}).length} results.`);
       })
-      .catch(() => setMessage('That file could not be read as an Arangam export.'));
+      .catch(() => setMessage('That file could not be read as an Ankam export.'));
   }
 
   return (

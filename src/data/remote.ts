@@ -39,7 +39,7 @@ function toWire(event: MeetEvent) {
  * it would let someone keep "saving" results that never land.
  */
 function onWriteFailed(error: unknown) {
-  console.error('[arangam] write rejected', error);
+  console.error('[ankam] write rejected', error);
   signOut();
   alert(
     'That change was not saved — your desk session is no longer valid.\n\n' +

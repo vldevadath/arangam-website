@@ -1,11 +1,11 @@
 // src/components/Crest.tsx
-// The Arangam emblem ships as gold artwork on a solid black field. Compositing
+// The Ankam emblem ships as gold artwork on a solid black field. Compositing
 // it straight onto the page would paint that black box over the backdrop, so
 // the black is keyed out here: brightness becomes alpha, and the colour is
 // un-premultiplied back to full strength.
 
 import { useEffect, useRef, useState } from 'react';
-import crestSrc from '../assets/logo-arangam.jpg';
+import crestSrc from '../assets/logo-ankam.jpg';
 
 type Props = {
   /** Longest edge in device pixels. Kept modest — it is only ever decorative. */
@@ -18,7 +18,7 @@ type Props = {
 /** Below this the pixel is film grain in the black field, not artwork. */
 const FLOOR = 14;
 
-export default function Crest({ size = 720, className, style, alt = 'അരങ്ങം · Arangam' }: Props) {
+export default function Crest({ size = 720, className, style, alt = 'അങ്കം · Ankam' }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [state, setState] = useState<'loading' | 'keyed' | 'failed'>('loading');
 

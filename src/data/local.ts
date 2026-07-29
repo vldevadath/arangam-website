@@ -12,7 +12,7 @@ import {
   type Team,
 } from './types';
 
-const STORAGE_KEY = 'arangam:meet:v2';
+const STORAGE_KEY = 'ankam:meet:v2';
 
 export function emptySnapshot(): Snapshot {
   return { teams: DEFAULT_TEAMS, events: defaultProgramme(), results: {} };

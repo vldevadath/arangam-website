@@ -293,7 +293,7 @@ export default function LoadingScreen({ onComplete }: Props) {
       className="fixed inset-0 z-[100] grid place-items-center overflow-hidden bg-pitch-base transition-opacity duration-600"
       style={{ opacity: leaving ? 0 : 1, pointerEvents: leaving ? 'none' : 'auto' }}
       role="status"
-      aria-label="Loading Arangam"
+      aria-label="Loading Ankam"
     >
       <canvas ref={canvasRef} className="absolute inset-0" aria-hidden />
 
