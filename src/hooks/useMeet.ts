@@ -16,7 +16,8 @@ import {
   type TeamStanding,
 } from '../data/standings';
 
-export const USING_CONVEX = Boolean(import.meta.env.VITE_CONVEX_URL);
+export { USING_CONVEX } from '../data/convexClient';
+import { USING_CONVEX } from '../data/convexClient';
 
 const SERVER_SNAPSHOT = emptySnapshot();
 

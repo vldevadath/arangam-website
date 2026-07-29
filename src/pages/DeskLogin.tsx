@@ -9,19 +9,30 @@ export default function DeskLogin() {
   const navigate = useNavigate();
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState('');
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     if (isSignedIn()) navigate('/desk/board', { replace: true });
   }, [navigate]);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (signIn(passcode)) {
-      navigate('/desk/board', { replace: true });
-      return;
+    if (checking) return;
+    setChecking(true);
+    setError('');
+    try {
+      // Checked by the deployment, not in the browser.
+      if (await signIn(passcode)) {
+        navigate('/desk/board', { replace: true });
+        return;
+      }
+      setError('That passcode was not recognised.');
+      setPasscode('');
+    } catch {
+      setError('Could not reach the results server. Check your connection and try again.');
+    } finally {
+      setChecking(false);
     }
-    setError('That passcode was not recognised.');
-    setPasscode('');
   }
 
   return (
@@ -70,13 +81,17 @@ export default function DeskLogin() {
 
         {error && <p className="mt-3 text-[12px] text-clay">{error}</p>}
 
-        <button type="submit" className="btn btn-crest mt-5 w-full">
-          Sign in
+        <button
+          type="submit"
+          disabled={checking || !passcode}
+          className="btn btn-crest mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {checking ? 'Checking…' : 'Sign in'}
         </button>
 
         <p className="mt-5 border-t border-pitch-line pt-4 text-[11px] leading-relaxed text-ink-muted">
-          The passcode only hides the desk from casual visitors. A static site cannot verify it
-          server-side, so treat published results — not this gate — as the record.
+          The passcode is checked by the results server and never stored in this page, so only the
+          desk can change the meet. Everyone else sees the results read-only.
         </p>
       </form>
     </div>

@@ -9,6 +9,25 @@ const DEFAULT_TEAMS = [
   { teamId: 'batch-25', name: "'25 Batch", short: "'25", colorHex: '#C4562C' },
 ];
 
+/**
+ * Every write presents the desk passcode, which is checked here rather than in
+ * the browser. The secret lives in the deployment's environment
+ * (`npx convex env set DESK_PASSCODE …`) and never reaches the client bundle,
+ * so reading the site's JavaScript tells you nothing.
+ */
+function assertDesk(passcode: string) {
+  const expected = process.env.DESK_PASSCODE;
+  if (!expected) {
+    throw new Error(
+      'DESK_PASSCODE is not set on this deployment. Run: npx convex env set DESK_PASSCODE <passcode>',
+    );
+  }
+  if (passcode !== expected) throw new Error('Not authorised — the desk passcode is wrong.');
+}
+
+/** Present on every mutation below. */
+const desk = { passcode: v.string() };
+
 const placing = v.object({
   teamId: v.string(),
   person: v.optional(v.string()),
@@ -66,8 +85,21 @@ export const snapshot = query({
 });
 
 /**
+ * Lets the sign-in screen tell a wrong passcode from a right one without
+ * writing anything. Deliberately returns a bare boolean and nothing else.
+ */
+export const checkPasscode = query({
+  args: { passcode: v.string() },
+  handler: (_ctx, { passcode }) => passcode === process.env.DESK_PASSCODE,
+});
+
+/**
  * First run against a fresh deployment. The client passes the programme from
  * src/data/catalog.ts so the printed sheet stays in one place.
+ *
+ * Left open deliberately: it only acts when the tables are empty, so the site
+ * seeds itself for the first visitor rather than staying blank until someone
+ * signs in. Once seeded it is a no-op.
  */
 export const seed = mutation({
   args: {
@@ -89,12 +121,14 @@ export const seed = mutation({
 
 export const setResult = mutation({
   args: {
+    ...desk,
     eventId: v.string(),
     first: v.optional(placing),
     second: v.optional(placing),
     third: v.optional(placing),
   },
-  handler: async (ctx, { eventId, ...spots }) => {
+  handler: async (ctx, { passcode, eventId, ...spots }) => {
+    assertDesk(passcode);
     const existing = await ctx.db
       .query('results')
       .withIndex('by_eventId', (q) => q.eq('eventId', eventId))
@@ -112,8 +146,9 @@ export const setResult = mutation({
 });
 
 export const clearResult = mutation({
-  args: { eventId: v.string() },
-  handler: async (ctx, { eventId }) => {
+  args: { ...desk, eventId: v.string() },
+  handler: async (ctx, { passcode, eventId }) => {
+    assertDesk(passcode);
     const existing = await ctx.db
       .query('results')
       .withIndex('by_eventId', (q) => q.eq('eventId', eventId))
@@ -123,8 +158,9 @@ export const clearResult = mutation({
 });
 
 export const addEvent = mutation({
-  args: { eventId: v.string(), ...eventFields },
-  handler: async (ctx, args) => {
+  args: { ...desk, eventId: v.string(), ...eventFields },
+  handler: async (ctx, { passcode, ...args }) => {
+    assertDesk(passcode);
     const all = await ctx.db.query('events').collect();
     const position = all.reduce((max, e) => Math.max(max, e.position), -1) + 1;
     await ctx.db.insert('events', { ...args, position });
@@ -133,6 +169,7 @@ export const addEvent = mutation({
 
 export const updateEvent = mutation({
   args: {
+    ...desk,
     eventId: v.string(),
     name: v.optional(v.string()),
     discipline: v.optional(v.union(v.literal('game'), v.literal('athletics'))),
@@ -143,7 +180,8 @@ export const updateEvent = mutation({
     // Explicit null clears the individual points; undefined leaves them alone.
     individual: v.optional(v.union(podium, v.null())),
   },
-  handler: async (ctx, { eventId, individual, ...patch }) => {
+  handler: async (ctx, { passcode, eventId, individual, ...patch }) => {
+    assertDesk(passcode);
     const event = await ctx.db
       .query('events')
       .withIndex('by_eventId', (q) => q.eq('eventId', eventId))
@@ -157,8 +195,9 @@ export const updateEvent = mutation({
 });
 
 export const removeEvent = mutation({
-  args: { eventId: v.string() },
-  handler: async (ctx, { eventId }) => {
+  args: { ...desk, eventId: v.string() },
+  handler: async (ctx, { passcode, eventId }) => {
+    assertDesk(passcode);
     const event = await ctx.db
       .query('events')
       .withIndex('by_eventId', (q) => q.eq('eventId', eventId))
@@ -176,12 +215,14 @@ export const removeEvent = mutation({
 
 export const updateTeam = mutation({
   args: {
+    ...desk,
     teamId: v.string(),
     name: v.optional(v.string()),
     short: v.optional(v.string()),
     colorHex: v.optional(v.string()),
   },
-  handler: async (ctx, { teamId, ...patch }) => {
+  handler: async (ctx, { passcode, teamId, ...patch }) => {
+    assertDesk(passcode);
     const team = await ctx.db
       .query('teams')
       .withIndex('by_teamId', (q) => q.eq('teamId', teamId))
@@ -193,9 +234,11 @@ export const updateTeam = mutation({
 /** Replaces the programme with the printed sheet, keeping results intact. */
 export const restoreProgramme = mutation({
   args: {
+    ...desk,
     events: v.array(v.object({ eventId: v.string(), ...eventFields })),
   },
-  handler: async (ctx, { events }) => {
+  handler: async (ctx, { passcode, events }) => {
+    assertDesk(passcode);
     const existing = await ctx.db.query('events').collect();
     for (const row of existing) await ctx.db.delete(row._id);
     let position = 0;
@@ -204,8 +247,9 @@ export const restoreProgramme = mutation({
 });
 
 export const resetResults = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { ...desk },
+  handler: async (ctx, { passcode }) => {
+    assertDesk(passcode);
     const rows = await ctx.db.query('results').collect();
     for (const row of rows) await ctx.db.delete(row._id);
   },

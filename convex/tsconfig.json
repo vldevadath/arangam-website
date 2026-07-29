@@ -8,6 +8,8 @@
     "allowSyntheticDefaultImports": true,
     "target": "ESNext",
     "lib": ["ES2021", "dom"],
+    // For process.env, which Convex exposes to functions as deployment vars.
+    "types": ["node"],
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
     "isolatedModules": true,

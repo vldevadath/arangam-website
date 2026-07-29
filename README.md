@@ -55,16 +55,37 @@ on the athletics events. **None of that is fixed** — see below.
 Editing an event's points immediately re-scores every result already recorded against it.
 Removing an event takes its result with it.
 
-> The passcode keeps the desk out of the way of casual visitors. It is **not** a security
-> boundary — a static site has no server to check it against. Put the site behind Netlify
-> password protection, or move to the Convex backend below, before that matters.
+### How the passcode is enforced
+
+With a Convex deployment the passcode never reaches the browser bundle. Signing in asks the
+deployment whether it is right, and **every write carries it for `convex/meet.ts` to check
+again** before touching the database — so reading the site's JavaScript reveals nothing, and a
+console cannot write to the meet. Reads stay public.
+
+Set or change it on the deployment, not in the code:
+
+```bash
+npx convex env set DESK_PASSCODE '<passcode>'          # dev
+npx convex env set DESK_PASSCODE '<passcode>' --prod   # production
+```
+
+Without a deployment the app is a single-browser scratchpad, so the check is local and
+`VITE_DESK_PASSCODE` (default `arangam-local`) is a placeholder rather than a secret.
+
+Two limits worth knowing: everyone at the desk shares one passcode, so there is no audit trail
+of who changed what; and `checkPasscode` is not rate-limited, so use a passcode long enough
+that guessing is not worth the trouble.
 
 ## Where the meet is stored
 
-By default: **this browser**, in `localStorage`, synced across tabs. Fine for one person
-running the scoreboard from one laptop — export a backup from the Data tab after each session.
+The published site runs on **Convex**: results live in a shared database and reach every open
+page over a websocket, so a podium saved at the ground appears on every phone without a
+refresh.
 
-For a meet that is shared and live across devices, point it at Convex:
+With no `VITE_CONVEX_URL` the app falls back to **this browser**, in `localStorage`, synced
+across tabs — useful for local development, useless for a real meet.
+
+To point a fresh clone at Convex:
 
 ```bash
 npx convex dev        # creates a deployment, writes VITE_CONVEX_URL to .env.local

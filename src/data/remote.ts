@@ -4,11 +4,15 @@
 // Functions are addressed through `anyApi` rather than convex/_generated/api
 // so the app builds and type-checks on a clone that has never run
 // `npx convex dev`. The arguments still match convex/meet.ts exactly.
+//
+// Every write carries the desk passcode, which convex/meet.ts checks before
+// touching the database.
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { anyApi } from 'convex/server';
 import { defaultProgramme, makeEventId } from './catalog';
+import { deskPasscode, signOut } from './auth';
 import type { Actions, MeetEvent, Snapshot } from './types';
 
 const api = anyApi.meet;
@@ -27,6 +31,25 @@ function toWire(event: MeetEvent) {
     overall: event.overall,
     individual: event.individual,
   };
+}
+
+/**
+ * A rejected write means the session lapsed or the passcode was changed on the
+ * deployment. Say so plainly and send them back to sign in — silently dropping
+ * it would let someone keep "saving" results that never land.
+ */
+function onWriteFailed(error: unknown) {
+  console.error('[arangam] write rejected', error);
+  signOut();
+  alert(
+    'That change was not saved — your desk session is no longer valid.\n\n' +
+      'Please sign in again and re-enter it.',
+  );
+  window.location.assign(`${import.meta.env.BASE_URL}desk`);
+}
+
+function guard(promise: Promise<unknown>) {
+  void promise.catch(onWriteFailed);
 }
 
 export function useRemoteSnapshot(): { snapshot: Snapshot; loading: boolean } {
@@ -56,17 +79,17 @@ export function useRemoteActions(): Actions {
   const resetFn = useMutation(api.resetResults);
 
   const setResult = useCallback<Actions['setResult']>(
-    (eventId, result) => void setResultFn({ eventId, ...result }),
+    (eventId, result) => guard(setResultFn({ passcode: deskPasscode(), eventId, ...result })),
     [setResultFn],
   );
   const clearResult = useCallback<Actions['clearResult']>(
-    (eventId) => void clearResultFn({ eventId }),
+    (eventId) => guard(clearResultFn({ passcode: deskPasscode(), eventId })),
     [clearResultFn],
   );
   const addEvent = useCallback<Actions['addEvent']>(
     (event) => {
       const id = makeEventId(`${event.name}-${event.category}`, snapshot?.events.map((e) => e.id) ?? []);
-      void addEventFn(toWire({ ...event, id }));
+      guard(addEventFn({ passcode: deskPasscode(), ...toWire({ ...event, id }) }));
       return id;
     },
     [addEventFn, snapshot],
@@ -76,23 +99,26 @@ export function useRemoteActions(): Actions {
       // `undefined` would be dropped in transit, so a cleared individual
       // podium is sent as an explicit null.
       const individual = 'individual' in patch ? (patch.individual ?? null) : undefined;
-      void updateEventFn({ eventId, ...patch, individual });
+      guard(updateEventFn({ passcode: deskPasscode(), eventId, ...patch, individual }));
     },
     [updateEventFn],
   );
   const removeEvent = useCallback<Actions['removeEvent']>(
-    (eventId) => void removeEventFn({ eventId }),
+    (eventId) => guard(removeEventFn({ passcode: deskPasscode(), eventId })),
     [removeEventFn],
   );
   const updateTeam = useCallback<Actions['updateTeam']>(
-    (teamId, patch) => void updateTeamFn({ teamId, ...patch }),
+    (teamId, patch) => guard(updateTeamFn({ passcode: deskPasscode(), teamId, ...patch })),
     [updateTeamFn],
   );
   const restoreProgramme = useCallback<Actions['restoreProgramme']>(
-    () => void restoreFn({ events: defaultProgramme().map(toWire) }),
+    () => guard(restoreFn({ passcode: deskPasscode(), events: defaultProgramme().map(toWire) })),
     [restoreFn],
   );
-  const resetResults = useCallback<Actions['resetResults']>(() => void resetFn({}), [resetFn]);
+  const resetResults = useCallback<Actions['resetResults']>(
+    () => guard(resetFn({ passcode: deskPasscode() })),
+    [resetFn],
+  );
 
   return useMemo(
     () => ({
