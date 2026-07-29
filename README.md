@@ -96,13 +96,57 @@ printed programme on first run. Setting `VITE_CONVEX_URL` is the whole switch �
 `src/hooks/useMeet.ts` picks the backend once at module load and every page carries on
 unchanged.
 
+## Live
+
+| | |
+| --- | --- |
+| Site | https://vldevadath.github.io/arangam-website/ |
+| Results desk | https://vldevadath.github.io/arangam-website/desk |
+| Convex dashboard | https://dashboard.convex.dev/t/devadath-v-l/arangam-website |
+| Production database | `https://valiant-buzzard-674.convex.cloud` |
+
+**Back up daily** from Desk → Data → Export JSON. Clearing results cannot be undone.
+
 ## Deploying
 
-Netlify picks up `netlify.toml` as-is (build `npm run build`, publish `dist`). The SPA redirect
-is in `public/_redirects` so deep links like `/standings` resolve.
+### GitHub Pages (current)
 
-If you use Convex, set `VITE_CONVEX_URL` in the site's environment variables and run
-`npx convex deploy` for the production deployment.
+`.github/workflows/deploy.yml` builds and publishes on every push to `main`. It is the only
+deployer — Pages is on the "GitHub Actions" build type and there is no `gh-pages` branch, so
+nothing races it.
+
+Two details the build depends on:
+
+- `VITE_BASE` sets the `/<repo>/` base path, and `main.tsx` feeds `import.meta.env.BASE_URL`
+  to the router's `basename`.
+- Pages has no redirect rules, so `vite.config.ts` copies `index.html` to `404.html`. Pages
+  serves that for unknown paths, which is how `/standings` resolves. Deep links return a 404
+  status while rendering correctly — expected for a SPA on Pages.
+
+`VITE_CONVEX_URL` is set in the workflow rather than in secrets: the Convex client URL is
+public by design and ships inside the bundle either way. The desk passcode is **not** in the
+bundle — see above.
+
+### Netlify
+
+`netlify.toml` and `public/_redirects` are committed, so build command, publish directory and
+SPA routing need no configuration.
+
+```bash
+npx netlify-cli env:set VITE_CONVEX_URL https://valiant-buzzard-674.convex.cloud
+npx netlify-cli deploy --build --prod
+```
+
+If every route answers `401` with a redirect to `app.netlify.com/edge-access`, the **team** has
+SSO login required for all sites (`account_sso_login`). It is a UI-only setting — turn it off
+under Team settings → Access & security.
+
+### Convex
+
+```bash
+npx convex deploy                                       # push functions to production
+npx convex env set DESK_PASSCODE '<passcode>' --prod    # change the passcode, no redeploy
+```
 
 ## Layout
 
