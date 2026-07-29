@@ -1,0 +1,287 @@
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────────────────────────────────
+   ARANGAM — "floodlit stadium" theme.
+   Midnight blue-black stands, crest gold, and a cold floodlight wash.
+   ────────────────────────────────────────────────────────────────────────── */
+@theme {
+  --color-pitch-base: #05070b;
+  --color-pitch-surface: #0b1017;
+  --color-pitch-raised: #141b28;
+  --color-pitch-line: #1e2839;
+
+  --color-crest: #d9a82e;
+  --color-crest-bright: #f7ce5b;
+  --color-crest-dim: #8c6d1c;
+
+  --color-flood: #7fc6ff;
+  --color-flood-deep: #123a5e;
+
+  --color-turf: #2fb673;
+  --color-clay: #c4562c;
+
+  --color-ink-primary: #f2efe6;
+  --color-ink-secondary: #9aa3b2;
+  --color-ink-muted: #626d7e;
+
+  --font-display: "Oswald", "Impact", sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-score: "Roboto Mono", ui-monospace, monospace;
+  /* Oswald carries no Malayalam, and per-glyph fallback breaks the conjuncts. */
+  --font-malayalam: "Noto Sans Malayalam", "Malayalam Sangam MN", system-ui, sans-serif;
+
+  --shadow-lift: 0 10px 40px rgb(0 0 0 / 0.55);
+  --shadow-crest: 0 0 24px rgb(217 168 46 / 0.35);
+  --shadow-flood: 0 0 32px rgb(127 198 255 / 0.18);
+
+  --animate-drift: drift 9s ease-in-out infinite;
+  --animate-sweep: sweep 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  --animate-rise: rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-breathe: breathe 4s ease-in-out infinite;
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translate3d(3%, -4%, 0) scale(1.08);
+    opacity: 0.6;
+  }
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(210%);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes lane-scroll {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 96px 0;
+  }
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+    font-family: var(--font-body);
+    color: var(--color-ink-primary);
+    background-color: var(--color-pitch-base);
+    background-image:
+      radial-gradient(ellipse 70% 45% at 15% -5%, rgb(18 58 94 / 0.42), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 88% 4%, rgb(18 58 94 / 0.3), transparent 70%),
+      radial-gradient(ellipse 90% 60% at 50% 110%, rgb(140 109 28 / 0.14), transparent 70%);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    margin: 0;
+  }
+
+  ::selection {
+    background-color: rgb(217 168 46 / 0.35);
+    color: var(--color-ink-primary);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-pitch-base);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-pitch-line);
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-crest-dim);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-crest);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Section eyebrow — small tracked-out condensed label */
+  .eyebrow {
+    font-family: var(--font-display);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--color-crest);
+  }
+
+  .panel {
+    background: linear-gradient(160deg, rgb(20 27 40 / 0.9), rgb(11 16 23 / 0.9));
+    border: 1px solid var(--color-pitch-line);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-lift);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-display);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border-radius: 0.375rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.22s ease;
+  }
+
+  .btn-crest {
+    background: linear-gradient(135deg, var(--color-crest-bright), var(--color-crest));
+    color: var(--color-pitch-base);
+    box-shadow: var(--shadow-crest);
+  }
+  .btn-crest:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+  }
+  .btn-crest:active {
+    transform: translateY(0);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border-color: var(--color-pitch-line);
+    color: var(--color-ink-secondary);
+  }
+  .btn-ghost:hover {
+    border-color: var(--color-crest-dim);
+    color: var(--color-crest-bright);
+  }
+
+  .field {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    background: rgb(5 7 11 / 0.6);
+    border: 1px solid var(--color-pitch-line);
+    border-radius: 0.375rem;
+    color: var(--color-ink-primary);
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    transition: border-color 0.2s ease;
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--color-crest-dim);
+  }
+  .field::placeholder {
+    color: var(--color-ink-muted);
+  }
+
+  /* Running-track lane stripes — the recurring structural motif */
+  .lanes {
+    background-image: repeating-linear-gradient(
+      90deg,
+      transparent 0 44px,
+      rgb(217 168 46 / 0.16) 44px 46px,
+      transparent 46px 48px
+    );
+  }
+
+  .lanes-live {
+    animation: lane-scroll 6s linear infinite;
+  }
+
+  .score {
+    font-family: var(--font-score);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+
+  .rule {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-crest-dim), transparent);
+  }
+}
+
+@layer utilities {
+  .malayalam {
+    font-family: var(--font-malayalam);
+    font-weight: 600;
+  }
+
+  .text-crest-glow {
+    text-shadow: 0 0 24px rgb(217 168 46 / 0.55);
+  }
+
+  .glass {
+    background: rgb(11 16 23 / 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  /* Keys pure black out of the crest JPEG so it sits on any backdrop */
+  .key-black {
+    mix-blend-mode: screen;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

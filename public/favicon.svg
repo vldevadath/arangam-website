@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F7CE5B" />
+      <stop offset="100%" stop-color="#B8871A" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="#05070B" />
+  <!-- shield outline, echoing the Arangam crest -->
+  <path
+    d="M32 9 52 16v18c0 12-8.5 19-20 23-11.5-4-20-11-20-23V16L32 9Z"
+    fill="none"
+    stroke="url(#g)"
+    stroke-width="3"
+    stroke-linejoin="round"
+  />
+  <!-- running track lanes -->
+  <path d="M20 40h24" stroke="url(#g)" stroke-width="2.5" stroke-linecap="round" opacity=".55" />
+  <path d="M22 45h20" stroke="url(#g)" stroke-width="2.5" stroke-linecap="round" opacity=".3" />
+  <!-- torch / flame form -->
+  <path
+    d="M32 19c4.5 4.2 6.8 7.7 6.8 11.2A6.8 6.8 0 0 1 32 37a6.8 6.8 0 0 1-6.8-6.8c0-3.5 2.3-7 6.8-11.2Z"
+    fill="url(#g)"
+  />
+</svg>
