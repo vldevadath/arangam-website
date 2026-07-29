@@ -1,5 +1,9 @@
 name: Deploy to GitHub Pages
 
+# The single deployer for this site. Pages is set to the "GitHub Actions"
+# build type, so nothing is published except what this workflow builds from
+# main — no artifact branch to go stale, and no second mechanism to race.
+
 on:
   push:
     branches: [main]
