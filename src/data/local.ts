@@ -2,41 +2,43 @@
 // Browser-local backend. Holds the whole meet in one localStorage record and
 // notifies subscribers — including other tabs — whenever it changes.
 
+import { defaultProgramme, makeEventId } from './catalog';
 import {
   DEFAULT_TEAMS,
-  EMPTY_SNAPSHOT,
   type Actions,
   type EventResult,
-  type Fixture,
+  type MeetEvent,
   type Snapshot,
   type Team,
 } from './types';
 
-const STORAGE_KEY = 'arangam:meet:v1';
+const STORAGE_KEY = 'arangam:meet:v2';
+
+export function emptySnapshot(): Snapshot {
+  return { teams: DEFAULT_TEAMS, events: defaultProgramme(), results: {} };
+}
 
 let state: Snapshot = read();
 const listeners = new Set<() => void>();
 
 function read(): Snapshot {
-  if (typeof localStorage === 'undefined') return EMPTY_SNAPSHOT;
+  if (typeof localStorage === 'undefined') return emptySnapshot();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return EMPTY_SNAPSHOT;
+    if (!raw) return emptySnapshot();
     const parsed = JSON.parse(raw) as Partial<Snapshot>;
     return {
       teams: mergeTeams(parsed.teams),
+      // The programme is fully owned by the desk once it exists, so a stored
+      // copy is taken as-is — including events removed from the defaults.
+      events: parsed.events?.length ? parsed.events : defaultProgramme(),
       results: parsed.results ?? {},
-      fixtures: parsed.fixtures ?? {},
     };
   } catch {
-    return EMPTY_SNAPSHOT;
+    return emptySnapshot();
   }
 }
 
-/**
- * Keeps the roster in sync with the defaults: stored edits win, but a batch
- * added to DEFAULT_TEAMS in a later release still shows up.
- */
 function mergeTeams(stored: Team[] | undefined): Team[] {
   if (!stored?.length) return DEFAULT_TEAMS;
   const byId = new Map(stored.map((t) => [t.id, t]));
@@ -70,15 +72,15 @@ export function getSnapshot(): Snapshot {
   return state;
 }
 
-/** Empty podium slots are dropped so `Object.keys(results)` means "has a result". */
-function prune(result: EventResult): EventResult | null {
+/** Empty podium slots are dropped, so a key in `results` means "has a result". */
+export function pruneResult(result: EventResult): EventResult | null {
   const cleaned: EventResult = {};
   for (const slot of ['first', 'second', 'third'] as const) {
     const placing = result[slot];
     if (placing?.teamId) {
       cleaned[slot] = {
         teamId: placing.teamId,
-        ...(placing.athlete?.trim() ? { athlete: placing.athlete.trim() } : {}),
+        ...(placing.person?.trim() ? { person: placing.person.trim() } : {}),
       };
     }
   }
@@ -87,7 +89,7 @@ function prune(result: EventResult): EventResult | null {
 
 export const actions: Actions = {
   setResult(eventId, result) {
-    const cleaned = prune(result);
+    const cleaned = pruneResult(result);
     const results = { ...state.results };
     if (cleaned) results[eventId] = cleaned;
     else delete results[eventId];
@@ -100,16 +102,25 @@ export const actions: Actions = {
     commit({ ...state, results });
   },
 
-  setFixture(eventId, fixture: Fixture) {
-    const trimmed: Fixture = {
-      ...(fixture.date?.trim() ? { date: fixture.date.trim() } : {}),
-      ...(fixture.time?.trim() ? { time: fixture.time.trim() } : {}),
-      ...(fixture.venue?.trim() ? { venue: fixture.venue.trim() } : {}),
-    };
-    const fixtures = { ...state.fixtures };
-    if (Object.keys(trimmed).length) fixtures[eventId] = trimmed;
-    else delete fixtures[eventId];
-    commit({ ...state, fixtures });
+  addEvent(event) {
+    const id = makeEventId(`${event.name}-${event.category}`, state.events.map((e) => e.id));
+    commit({ ...state, events: [...state.events, { ...event, id } as MeetEvent] });
+    return id;
+  },
+
+  updateEvent(eventId, patch) {
+    commit({
+      ...state,
+      events: state.events.map((e) => (e.id === eventId ? { ...e, ...patch } : e)),
+    });
+  },
+
+  removeEvent(eventId) {
+    // Its result would otherwise linger as an orphan the standings ignore but
+    // an export would still carry.
+    const results = { ...state.results };
+    delete results[eventId];
+    commit({ ...state, events: state.events.filter((e) => e.id !== eventId), results });
   },
 
   updateTeam(teamId, patch) {
@@ -119,7 +130,11 @@ export const actions: Actions = {
     });
   },
 
-  resetAll() {
-    commit({ teams: DEFAULT_TEAMS, results: {}, fixtures: {} });
+  restoreProgramme() {
+    commit({ ...state, events: defaultProgramme() });
+  },
+
+  resetResults() {
+    commit({ ...state, results: {} });
   },
 };

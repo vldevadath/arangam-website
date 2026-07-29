@@ -33,7 +33,7 @@ export default function Footer() {
               ['/events', 'Events & Points'],
               ['/standings', 'Standings'],
               ['/results', 'Results'],
-              ['/champions', 'Individual Champions'],
+              ['/champions', 'Champions'],
               ['/desk', 'Results Desk'],
             ].map(([to, label]) => (
               <li key={to}>

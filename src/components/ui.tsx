@@ -4,7 +4,7 @@
 
 import type { ReactNode } from 'react';
 import { CircleDashed } from 'lucide-react';
-import type { Category, Discipline } from '../data/catalog';
+import type { Category, Discipline } from '../data/types';
 
 export const MEDALS = [
   { label: '1st', ring: '#F7CE5B', fill: 'rgb(247 206 91 / 0.14)', text: '#F7CE5B' },
@@ -108,13 +108,13 @@ export function SegmentedControl<T extends string>({
 }
 
 /** Points as they appear on the official sheet: 10 / 5 / 2 */
-export function PointsTriple({ points }: { points: readonly [number, number, number] }) {
+export function PointsTriple({ points }: { points: readonly number[] }) {
   return (
     <span className="score text-[13px] whitespace-nowrap text-ink-secondary">
       {points.map((p, i) => (
         <span key={i}>
           {i > 0 && <span className="px-1 text-pitch-line">/</span>}
-          <span style={{ color: MEDALS[i].text }}>{p}</span>
+          <span style={{ color: MEDALS[i]?.text }}>{p}</span>
         </span>
       ))}
     </span>

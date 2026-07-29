@@ -1,11 +1,17 @@
 // src/pages/Results.tsx
 import { useMemo, useState } from 'react';
 import PageHeader from '../components/layout/PageHeader';
-import { CategoryTag, DisciplineTag, EmptyState, MedalBadge, TeamDot } from '../components/ui';
-import { type Discipline } from '../data/catalog';
+import {
+  CategoryTag,
+  DisciplineTag,
+  EmptyState,
+  MedalBadge,
+  SegmentedControl,
+  TeamDot,
+} from '../components/ui';
 import { decidedEvents, teamColor, teamName } from '../data/standings';
+import type { Discipline } from '../data/types';
 import { useMeet } from '../hooks/useMeet';
-import { SegmentedControl } from '../components/ui';
 
 type Filter = 'all' | Discipline;
 
@@ -36,22 +42,22 @@ export default function Results() {
         />
       </PageHeader>
 
-      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         {decided.length === 0 ? (
           <EmptyState
             title="No results declared"
             hint="Podiums appear here the moment the results desk publishes them."
           />
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
             {decided.map(({ event, result }) => (
-              <article key={event.id} className="panel flex flex-col p-5">
+              <article key={event.id} className="panel flex flex-col p-4 sm:p-5">
                 <div className="flex flex-wrap items-center gap-2">
                   <DisciplineTag discipline={event.discipline} />
                   <CategoryTag category={event.category} />
                 </div>
 
-                <h2 className="mt-3 font-display text-xl tracking-[0.05em] text-ink-primary uppercase">
+                <h2 className="mt-3 font-display text-lg tracking-[0.05em] text-ink-primary uppercase sm:text-xl">
                   {event.name}
                 </h2>
                 {event.note && <p className="mt-0.5 text-[11px] text-ink-muted">{event.note}</p>}
@@ -70,9 +76,9 @@ export default function Results() {
                                 {teamName(snapshot.teams, placing.teamId)}
                               </span>
                             </div>
-                            {placing.athlete && (
+                            {placing.person && (
                               <p className="mt-0.5 truncate text-[12px] text-ink-muted">
-                                {placing.athlete}
+                                {placing.person}
                               </p>
                             )}
                           </div>
@@ -80,7 +86,7 @@ export default function Results() {
                           <span className="flex-1 text-[13px] text-pitch-line">Not declared</span>
                         )}
                         <span className="score shrink-0 text-[13px] text-ink-muted">
-                          +{event.overall[i]}
+                          +{event.overall[i] ?? 0}
                         </span>
                       </li>
                     );

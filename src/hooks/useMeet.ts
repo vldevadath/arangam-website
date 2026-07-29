@@ -4,23 +4,24 @@
 // of the app and the hooks below obey the rules of hooks either way.
 
 import { useMemo, useSyncExternalStore } from 'react';
-import { actions as localActions, getSnapshot, subscribe } from '../data/local';
+import { actions as localActions, emptySnapshot, getSnapshot, subscribe } from '../data/local';
 import { useRemoteActions, useRemoteSnapshot } from '../data/remote';
-import { EMPTY_SNAPSHOT, type Actions, type Snapshot } from '../data/types';
+import type { Actions, Category, Snapshot } from '../data/types';
 import {
-  athleteStandings,
   meetProgress,
+  personStandings,
   teamStandings,
-  type AthleteStanding,
   type MeetProgress,
+  type PersonStanding,
   type TeamStanding,
 } from '../data/standings';
-import type { Category } from '../data/catalog';
 
 export const USING_CONVEX = Boolean(import.meta.env.VITE_CONVEX_URL);
 
+const SERVER_SNAPSHOT = emptySnapshot();
+
 function useLocalSnapshot(): { snapshot: Snapshot; loading: boolean } {
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY_SNAPSHOT);
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, () => SERVER_SNAPSHOT);
   return { snapshot, loading: false };
 }
 
@@ -37,14 +38,15 @@ export function useMeet() {
   const teams = useMemo<TeamStanding[]>(() => teamStandings(snapshot), [snapshot]);
   const progress = useMemo<MeetProgress>(() => meetProgress(snapshot), [snapshot]);
 
-  return { snapshot, loading, teams, progress };
+  return { snapshot, loading, teams, progress, events: snapshot.events };
 }
 
 export function useMeetActions(): Actions {
   return useActionsImpl();
 }
 
-export function useAthletes(category?: Category): AthleteStanding[] {
+/** The individual championship, optionally narrowed to one event category. */
+export function usePeople(category?: Category): PersonStanding[] {
   const { snapshot } = useSnapshotImpl();
-  return useMemo(() => athleteStandings(snapshot, category), [snapshot, category]);
+  return useMemo(() => personStandings(snapshot, category), [snapshot, category]);
 }

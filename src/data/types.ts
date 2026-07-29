@@ -1,18 +1,46 @@
 // src/data/types.ts
 
+export type Discipline = 'game' | 'athletics';
+export type Category = 'men' | 'women' | 'mixed';
+
+/** Points awarded to placings 1st / 2nd / 3rd. */
+export type Podium = [number, number, number];
+
+/**
+ * One event on the programme. Every field is editable from the results desk —
+ * the printed sheet only seeds the defaults, it does not constrain the meet.
+ */
+export type MeetEvent = {
+  id: string;
+  name: string;
+  discipline: Discipline;
+  category: Category;
+  /** Squad size as text, e.g. "11–16" or "2". Free-form on purpose. */
+  squad: string;
+  /** Format footnote, e.g. "2 singles & 1 double". */
+  note?: string;
+  /** Points added to the batch total. */
+  overall: Podium;
+  /**
+   * Points credited to the individual competitor. Absent means the event does
+   * not count towards the individual championship.
+   */
+  individual?: Podium;
+};
+
 export type Team = {
   id: string;
-  /** Display name, e.g. "'24 Batch". Editable from the admin dashboard. */
+  /** Display name, e.g. "'24 Batch". */
   name: string;
   /** Short form used in dense tables, e.g. "'24". */
   short: string;
   colorHex: string;
 };
 
-/** One podium slot of one event. `athlete` is only recorded for athletics. */
+/** One podium slot of one event. `person` is recorded where it is known. */
 export type Placing = {
   teamId: string;
-  athlete?: string;
+  person?: string;
 };
 
 export type EventResult = {
@@ -21,25 +49,21 @@ export type EventResult = {
   third?: Placing;
 };
 
-/** When and where an event is held. All fields optional until announced. */
-export type Fixture = {
-  date?: string;
-  time?: string;
-  venue?: string;
-};
-
 export type Snapshot = {
   teams: Team[];
+  events: MeetEvent[];
   results: Record<string, EventResult>;
-  fixtures: Record<string, Fixture>;
 };
 
 export type Actions = {
   setResult: (eventId: string, result: EventResult) => void;
   clearResult: (eventId: string) => void;
-  setFixture: (eventId: string, fixture: Fixture) => void;
+  addEvent: (event: Omit<MeetEvent, 'id'>) => string;
+  updateEvent: (eventId: string, patch: Partial<Omit<MeetEvent, 'id'>>) => void;
+  removeEvent: (eventId: string) => void;
   updateTeam: (teamId: string, patch: Partial<Omit<Team, 'id'>>) => void;
-  resetAll: () => void;
+  restoreProgramme: () => void;
+  resetResults: () => void;
 };
 
 export const DEFAULT_TEAMS: Team[] = [
@@ -49,9 +73,3 @@ export const DEFAULT_TEAMS: Team[] = [
   { id: 'batch-24', name: "'24 Batch", short: "'24", colorHex: '#F7CE5B' },
   { id: 'batch-25', name: "'25 Batch", short: "'25", colorHex: '#C4562C' },
 ];
-
-export const EMPTY_SNAPSHOT: Snapshot = {
-  teams: DEFAULT_TEAMS,
-  results: {},
-  fixtures: {},
-};

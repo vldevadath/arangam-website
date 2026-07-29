@@ -5,7 +5,7 @@
 import { useMemo } from 'react';
 import PageHeader from '../components/layout/PageHeader';
 import { EmptyState, MEDALS, TeamDot } from '../components/ui';
-import { ALL_EVENTS, eventLabel } from '../data/catalog';
+import { eventLabel } from '../data/catalog';
 import { useMeet } from '../hooks/useMeet';
 
 export default function Standings() {
@@ -15,16 +15,20 @@ export default function Standings() {
   /** Per-event points per batch — the ledger that adds up to each total. */
   const ledger = useMemo(
     () =>
-      ALL_EVENTS.filter((event) => snapshot.results[event.id]).map((event) => {
-        const result = snapshot.results[event.id];
-        const points: Record<string, number> = {};
-        (['first', 'second', 'third'] as const).forEach((slot, i) => {
-          const placing = result[slot];
-          if (placing?.teamId) points[placing.teamId] = (points[placing.teamId] ?? 0) + event.overall[i];
-        });
-        return { event, points };
-      }),
-    [snapshot.results],
+      snapshot.events
+        .filter((event) => snapshot.results[event.id])
+        .map((event) => {
+          const result = snapshot.results[event.id];
+          const points: Record<string, number> = {};
+          (['first', 'second', 'third'] as const).forEach((slot, i) => {
+            const placing = result[slot];
+            if (placing?.teamId) {
+              points[placing.teamId] = (points[placing.teamId] ?? 0) + (event.overall[i] ?? 0);
+            }
+          });
+          return { event, points };
+        }),
+    [snapshot.events, snapshot.results],
   );
 
   return (
@@ -41,15 +45,16 @@ export default function Standings() {
               style={{ width: `${progress.percent}%` }}
             />
           </div>
-          <p className="score mt-2 text-[11px] text-ink-muted">{progress.percent}% of the meet complete</p>
+          <p className="score mt-2 text-[11px] text-ink-muted">
+            {progress.percent}% of the meet complete
+          </p>
         </div>
       </PageHeader>
 
-      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        {/* Batch cards */}
+      <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {teams.map((team) => (
-            <article key={team.id} className="panel relative overflow-hidden p-5">
+            <article key={team.id} className="panel relative overflow-hidden p-4 sm:p-5">
               <div
                 aria-hidden
                 className="absolute inset-x-0 top-0 h-0.5"
@@ -107,8 +112,7 @@ export default function Standings() {
           ))}
         </div>
 
-        {/* Ledger */}
-        <h2 className="mt-14 font-display text-2xl tracking-[0.06em] text-ink-primary uppercase">
+        <h2 className="mt-12 font-display text-2xl tracking-[0.06em] text-ink-primary uppercase sm:mt-14">
           Points ledger
         </h2>
         <p className="mt-1.5 text-[13px] text-ink-muted">
@@ -123,60 +127,84 @@ export default function Standings() {
             />
           </div>
         ) : (
-          <div className="panel mt-5 overflow-x-auto">
-            <table className="w-full min-w-[40rem] border-collapse text-left">
-              <thead>
-                <tr className="border-b border-pitch-line">
-                  <th className="px-4 py-3 font-display text-[10px] font-500 tracking-[0.22em] text-ink-muted uppercase">
-                    Event
-                  </th>
-                  {teams.map((team) => (
-                    <th key={team.id} className="px-3 py-3 text-center">
-                      <span className="flex items-center justify-center gap-1.5">
-                        <TeamDot color={team.colorHex} size={6} />
-                        <span className="font-display text-[10px] font-500 tracking-[0.16em] text-ink-muted uppercase">
-                          {team.short}
-                        </span>
-                      </span>
+          <>
+            {/* Phone: per-event card listing only the batches that scored */}
+            <ul className="mt-5 space-y-2.5 md:hidden">
+              {ledger.map(({ event, points }) => (
+                <li key={event.id} className="panel p-4">
+                  <p className="text-[14px] text-ink-primary">{eventLabel(event)}</p>
+                  <ul className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
+                    {teams
+                      .filter((team) => points[team.id])
+                      .map((team) => (
+                        <li key={team.id} className="flex items-center gap-1.5">
+                          <TeamDot color={team.colorHex} size={6} />
+                          <span className="text-[12px] text-ink-secondary">{team.short}</span>
+                          <span className="score text-[13px] text-ink-primary">
+                            +{points[team.id]}
+                          </span>
+                        </li>
+                      ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+
+            <div className="panel mt-5 hidden overflow-x-auto md:block">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-pitch-line">
+                    <th className="px-4 py-3 font-display text-[10px] font-500 tracking-[0.22em] text-ink-muted uppercase">
+                      Event
                     </th>
+                    {teams.map((team) => (
+                      <th key={team.id} className="px-3 py-3 text-center">
+                        <span className="flex items-center justify-center gap-1.5">
+                          <TeamDot color={team.colorHex} size={6} />
+                          <span className="font-display text-[10px] font-500 tracking-[0.16em] text-ink-muted uppercase">
+                            {team.short}
+                          </span>
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ledger.map(({ event, points }) => (
+                    <tr
+                      key={event.id}
+                      className="border-b border-white/[0.04] transition-colors last:border-0 hover:bg-white/[0.025]"
+                    >
+                      <td className="px-4 py-2.5 text-[13px] whitespace-nowrap text-ink-secondary">
+                        {eventLabel(event)}
+                      </td>
+                      {teams.map((team) => (
+                        <td key={team.id} className="score px-3 py-2.5 text-center text-[13px]">
+                          {points[team.id] ? (
+                            <span className="text-ink-primary">{points[team.id]}</span>
+                          ) : (
+                            <span className="text-pitch-line">·</span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {ledger.map(({ event, points }) => (
-                  <tr
-                    key={event.id}
-                    className="border-b border-white/[0.04] transition-colors last:border-0 hover:bg-white/[0.025]"
-                  >
-                    <td className="px-4 py-2.5 text-[13px] whitespace-nowrap text-ink-secondary">
-                      {eventLabel(event)}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-pitch-line bg-pitch-base/40">
+                    <td className="px-4 py-3 font-display text-[11px] tracking-[0.2em] text-ink-muted uppercase">
+                      Total
                     </td>
                     {teams.map((team) => (
-                      <td key={team.id} className="score px-3 py-2.5 text-center text-[13px]">
-                        {points[team.id] ? (
-                          <span className="text-ink-primary">{points[team.id]}</span>
-                        ) : (
-                          <span className="text-pitch-line">·</span>
-                        )}
+                      <td key={team.id} className="score px-3 py-3 text-center text-[15px]">
+                        <span style={{ color: team.colorHex }}>{team.total}</span>
                       </td>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t border-pitch-line bg-pitch-base/40">
-                  <td className="px-4 py-3 font-display text-[11px] tracking-[0.2em] text-ink-muted uppercase">
-                    Total
-                  </td>
-                  {teams.map((team) => (
-                    <td key={team.id} className="score px-3 py-3 text-center text-[15px]">
-                      <span style={{ color: team.colorHex }}>{team.total}</span>
-                    </td>
-                  ))}
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                </tfoot>
+              </table>
+            </div>
+          </>
         )}
       </section>
     </>

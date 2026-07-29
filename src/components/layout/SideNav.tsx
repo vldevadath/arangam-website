@@ -11,7 +11,7 @@ const LINKS = [
   { to: '/events', label: 'Events & Points', icon: ClipboardList },
   { to: '/standings', label: 'Standings', icon: ListOrdered },
   { to: '/results', label: 'Results', icon: Trophy },
-  { to: '/champions', label: 'Individual Champions', icon: Medal },
+  { to: '/champions', label: 'Champions', icon: Medal },
 ];
 
 export default function SideNav({ open, onClose }: Props) {

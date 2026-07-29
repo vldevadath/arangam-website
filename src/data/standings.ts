@@ -1,10 +1,9 @@
 // src/data/standings.ts
 // Every number on the site is derived here. Nothing stores a points total —
-// results plus the printed points table are the only inputs, so a corrected
-// result can never leave a stale total behind.
+// the podium of each event and that event's own points table are the only
+// inputs, so a corrected result can never leave a stale total behind.
 
-import { ALL_EVENTS, getEvent, type Category, type Discipline, type EventDef } from './catalog';
-import type { EventResult, Placing, Snapshot, Team } from './types';
+import type { Category, Discipline, EventResult, MeetEvent, Placing, Snapshot, Team } from './types';
 
 const SLOTS = ['first', 'second', 'third'] as const;
 export type Slot = (typeof SLOTS)[number];
@@ -20,33 +19,31 @@ export type TeamStanding = Team & {
   rank: number;
 };
 
-export type AthleteStanding = {
+export type PersonStanding = {
   name: string;
   teamId: string;
   points: number;
   golds: number;
   silvers: number;
   bronzes: number;
+  /** Distinct events this person has been placed in. */
   events: number;
   rank: number;
 };
 
-export type DecidedEvent = {
-  event: EventDef;
-  result: EventResult;
-};
+export type DecidedEvent = { event: MeetEvent; result: EventResult };
 
-/** Walks each recorded podium slot once. */
+/** Walks each recorded podium slot once, skipping results with no event. */
 function forEachPlacing(
-  results: Snapshot['results'],
-  visit: (event: EventDef, slot: Slot, index: number, placing: Placing) => void,
+  snapshot: Snapshot,
+  visit: (event: MeetEvent, index: number, placing: Placing) => void,
 ): void {
-  for (const [eventId, result] of Object.entries(results)) {
-    const event = getEvent(eventId);
-    if (!event) continue; // result left over from an older programme
+  for (const event of snapshot.events) {
+    const result = snapshot.results[event.id];
+    if (!result) continue;
     SLOTS.forEach((slot, index) => {
       const placing = result[slot];
-      if (placing?.teamId) visit(event, slot, index, placing);
+      if (placing?.teamId) visit(event, index, placing);
     });
   }
 }
@@ -59,10 +56,10 @@ export function teamStandings(snapshot: Snapshot): TeamStanding[] {
     ]),
   );
 
-  forEachPlacing(snapshot.results, (event, _slot, index, placing) => {
+  forEachPlacing(snapshot, (event, index, placing) => {
     const row = rows.get(placing.teamId);
     if (!row) return;
-    const points = event.overall[index];
+    const points = event.overall[index] ?? 0;
     row.total += points;
     if (event.discipline === 'game') row.gamePoints += points;
     else row.athleticsPoints += points;
@@ -78,19 +75,24 @@ export function teamStandings(snapshot: Snapshot): TeamStanding[] {
   return assignRanks(sorted, (row) => row.total);
 }
 
-export function athleteStandings(snapshot: Snapshot, category?: Category): AthleteStanding[] {
-  const rows = new Map<string, AthleteStanding>();
+/**
+ * The individual championship. Anyone named on a podium of an event that
+ * carries individual points appears here, and their points accumulate across
+ * every event they place in — a person may compete in as many as they like.
+ */
+export function personStandings(snapshot: Snapshot, category?: Category): PersonStanding[] {
+  const rows = new Map<string, PersonStanding>();
 
-  forEachPlacing(snapshot.results, (event, _slot, index, placing) => {
-    if (!event.individual || !placing.athlete) return;
+  forEachPlacing(snapshot, (event, index, placing) => {
+    if (!event.individual || !placing.person) return;
     if (category && event.category !== category) return;
 
-    // Same athlete name within the same batch is the same person.
-    const key = `${placing.teamId}::${placing.athlete.toLowerCase()}`;
+    // Same name within the same batch is the same person.
+    const key = `${placing.teamId}::${placing.person.trim().toLowerCase()}`;
     let row = rows.get(key);
     if (!row) {
       row = {
-        name: placing.athlete,
+        name: placing.person.trim(),
         teamId: placing.teamId,
         points: 0,
         golds: 0,
@@ -101,7 +103,7 @@ export function athleteStandings(snapshot: Snapshot, category?: Category): Athle
       };
       rows.set(key, row);
     }
-    row.points += event.individual[index];
+    row.points += event.individual[index] ?? 0;
     row.events += 1;
     if (index === 0) row.golds += 1;
     else if (index === 1) row.silvers += 1;
@@ -130,7 +132,8 @@ function assignRanks<T>(sorted: T[], scoreOf: (row: T) => number): (T & { rank: 
 
 /** Events with at least one podium slot filled, in programme order. */
 export function decidedEvents(snapshot: Snapshot, discipline?: Discipline): DecidedEvent[] {
-  return ALL_EVENTS.filter((e) => (discipline ? e.discipline === discipline : true))
+  return snapshot.events
+    .filter((e) => (discipline ? e.discipline === discipline : true))
     .filter((e) => snapshot.results[e.id])
     .map((event) => ({ event, result: snapshot.results[event.id] }));
 }
@@ -143,12 +146,13 @@ export type MeetProgress = {
 };
 
 export function meetProgress(snapshot: Snapshot): MeetProgress {
-  const decided = ALL_EVENTS.filter((e) => snapshot.results[e.id]).length;
+  const total = snapshot.events.length;
+  const decided = snapshot.events.filter((e) => snapshot.results[e.id]).length;
   const pointsAwarded = teamStandings(snapshot).reduce((sum, t) => sum + t.total, 0);
   return {
     decided,
-    total: ALL_EVENTS.length,
-    percent: ALL_EVENTS.length ? Math.round((decided / ALL_EVENTS.length) * 100) : 0,
+    total,
+    percent: total ? Math.round((decided / total) * 100) : 0,
     pointsAwarded,
   };
 }

@@ -7,7 +7,8 @@ import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    {/* BASE_URL keeps routing correct under the /<repo>/ path GitHub Pages serves. */}
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <MeetBackend>
         <App />
       </MeetBackend>
