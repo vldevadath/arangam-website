@@ -5,7 +5,7 @@
 //   Batches   — names and colours.
 //   Data      — export, import, reset.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Check,
@@ -212,13 +212,16 @@ function ResultRow({
   const [podium, setPodium] = useState<EventResult>(stored ?? {});
   const [saved, setSaved] = useState(false);
 
-  // Re-sync when the row opens, so it never shows a stale draft.
+  // Re-sync on open, so the row never shows a stale draft. Keyed on `open`
+  // alone: saving replaces `stored` with an equal-but-new object, and
+  // depending on it would wipe the confirmation the moment it appeared.
+  const latest = useRef(stored);
+  latest.current = stored;
   useEffect(() => {
-    if (open) {
-      setPodium(stored ?? {});
-      setSaved(false);
-    }
-  }, [open, stored]);
+    if (!open) return;
+    setPodium(latest.current ?? {});
+    setSaved(false);
+  }, [open]);
 
   function setSlot(slot: (typeof SLOTS)[number], patch: Partial<Placing>) {
     setPodium((p) => {
@@ -506,12 +509,14 @@ function ProgrammeRow({
   const [draft, setDraft] = useState<MeetEvent>(event);
   const [saved, setSaved] = useState(false);
 
+  // Keyed on `open` alone — see the note in ResultRow.
+  const latest = useRef(event);
+  latest.current = event;
   useEffect(() => {
-    if (open) {
-      setDraft(event);
-      setSaved(false);
-    }
-  }, [open, event]);
+    if (!open) return;
+    setDraft(latest.current);
+    setSaved(false);
+  }, [open]);
 
   function patch(next: Partial<MeetEvent>) {
     setDraft((d) => ({ ...d, ...next }));
