@@ -3,6 +3,7 @@
 // notifies subscribers — including other tabs — whenever it changes.
 
 import { defaultProgramme, makeEventId } from './catalog';
+import { normalizeName } from './standings';
 import {
   DEFAULT_TEAMS,
   type Actions,
@@ -78,9 +79,10 @@ export function pruneResult(result: EventResult): EventResult | null {
   for (const slot of ['first', 'second', 'third'] as const) {
     const placing = result[slot];
     if (placing?.teamId) {
+      const person = placing.person ? normalizeName(placing.person) : '';
       cleaned[slot] = {
         teamId: placing.teamId,
-        ...(placing.person?.trim() ? { person: placing.person.trim() } : {}),
+        ...(person ? { person } : {}),
       };
     }
   }

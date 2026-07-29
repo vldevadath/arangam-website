@@ -33,6 +33,30 @@ export type PersonStanding = {
 
 export type DecidedEvent = { event: MeetEvent; result: EventResult };
 
+/**
+ * Names are typed by different volunteers on different phones, so they are
+ * matched forgivingly: surrounding and repeated whitespace is collapsed and
+ * case is ignored. "arjun  nair" and "Arjun Nair" are one person. Spelling
+ * still has to agree — the desk offers the names already entered to make that
+ * the easy path.
+ */
+export function normalizeName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ');
+}
+
+function nameKey(teamId: string, name: string): string {
+  return `${teamId}::${normalizeName(name).toLowerCase()}`;
+}
+
+/** Every person already recorded, for the desk's name suggestions. */
+export function knownPeople(snapshot: Snapshot): string[] {
+  const names = new Set<string>();
+  forEachPlacing(snapshot, (_event, _index, placing) => {
+    if (placing.person) names.add(normalizeName(placing.person));
+  });
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
 /** Walks each recorded podium slot once, skipping results with no event. */
 function forEachPlacing(
   snapshot: Snapshot,
@@ -88,11 +112,11 @@ export function personStandings(snapshot: Snapshot, category?: Category): Person
     if (category && event.category !== category) return;
 
     // Same name within the same batch is the same person.
-    const key = `${placing.teamId}::${placing.person.trim().toLowerCase()}`;
+    const key = nameKey(placing.teamId, placing.person);
     let row = rows.get(key);
     if (!row) {
       row = {
-        name: placing.person.trim(),
+        name: normalizeName(placing.person),
         teamId: placing.teamId,
         points: 0,
         golds: 0,

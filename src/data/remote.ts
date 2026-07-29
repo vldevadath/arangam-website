@@ -13,6 +13,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { anyApi } from 'convex/server';
 import { defaultProgramme, makeEventId } from './catalog';
 import { deskPasscode, signOut } from './auth';
+import { normalizeName } from './standings';
 import type { Actions, MeetEvent, Snapshot } from './types';
 
 const api = anyApi.meet;
@@ -79,7 +80,20 @@ export function useRemoteActions(): Actions {
   const resetFn = useMutation(api.resetResults);
 
   const setResult = useCallback<Actions['setResult']>(
-    (eventId, result) => guard(setResultFn({ passcode: deskPasscode(), eventId, ...result })),
+    (eventId, result) => {
+      // Normalise here too — the local store does the same in pruneResult, so
+      // a name is stored the same way whichever backend is answering.
+      const spots = Object.fromEntries(
+        (['first', 'second', 'third'] as const)
+          .filter((slot) => result[slot]?.teamId)
+          .map((slot) => {
+            const placing = result[slot]!;
+            const person = placing.person ? normalizeName(placing.person) : '';
+            return [slot, { teamId: placing.teamId, ...(person ? { person } : {}) }];
+          }),
+      );
+      guard(setResultFn({ passcode: deskPasscode(), eventId, ...spots }));
+    },
     [setResultFn],
   );
   const clearResult = useCallback<Actions['clearResult']>(

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { MEET, categoryLabel, defaultProgramme, eventLabel } from '../data/catalog';
 import { isSignedIn, signOut } from '../data/auth';
+import { knownPeople } from '../data/standings';
 import { CategoryTag, MedalBadge, SegmentedControl, Tag, TeamDot } from '../components/ui';
 import { useMeet, useMeetActions } from '../hooks/useMeet';
 import type {
@@ -167,12 +168,22 @@ function PodiumInput({
 
 // ─── Results ────────────────────────────────────────────────────────────────
 
+const PEOPLE_LIST_ID = 'ankam-known-people';
+
 function ResultsTab({ snapshot, actions }: { snapshot: Snapshot; actions: Actions }) {
   const { query, setQuery, filtered } = useSearch(snapshot.events);
   const [openId, setOpenId] = useState<string | null>(null);
+  const people = useMemo(() => knownPeople(snapshot), [snapshot]);
 
   return (
     <>
+      {/* Shared by every name field below. */}
+      <datalist id={PEOPLE_LIST_ID}>
+        {people.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+
       <SearchBox value={query} onChange={setQuery} />
 
       <ul className="mt-4 space-y-2">
@@ -282,6 +293,11 @@ function ResultRow({
                       disabled={!placing?.teamId}
                       placeholder="Name"
                       aria-label={`${event.name} ${slot} place person`}
+                      // Offers everyone already recorded, so the same person is
+                      // spelled the same way each time.
+                      list={PEOPLE_LIST_ID}
+                      autoComplete="off"
+                      autoCapitalize="words"
                       className="field min-w-[10rem] flex-1 disabled:opacity-40"
                     />
                   )}
@@ -298,8 +314,9 @@ function ResultRow({
 
           {event.individual && (
             <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
-              The name is what puts a person on the individual championship. Spell it the same way
-              every time — their points add up across every event they place in.
+              The name is what puts a person on the individual championship, and their points add
+              up across every event they place in. Capitals and extra spaces do not matter — pick
+              from the suggestions so the spelling stays the same.
             </p>
           )}
 
