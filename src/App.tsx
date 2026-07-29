@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import TopBar from './components/layout/TopBar';
 import Footer from './components/layout/Footer';
-import OpeningCeremony from './components/layout/OpeningCeremony';
+import LoadingScreen from './components/layout/LoadingScreen';
 import Home from './pages/Home';
 import Events from './pages/Events';
 import Standings from './pages/Standings';
@@ -31,7 +31,7 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [pathname]);
 
-  if (intro) return <OpeningCeremony onDone={dismissIntro} />;
+  if (intro) return <LoadingScreen onComplete={dismissIntro} />;
 
   const onDesk = pathname.startsWith('/desk');
 
