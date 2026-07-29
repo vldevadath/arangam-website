@@ -22,6 +22,7 @@ import {
 import { MEET, categoryLabel, defaultProgramme, eventLabel } from '../data/catalog';
 import { isSignedIn, signOut } from '../data/auth';
 import { knownPeople } from '../data/standings';
+import PersonInput from '../components/PersonInput';
 import { CategoryTag, MedalBadge, SegmentedControl, Tag, TeamDot } from '../components/ui';
 import { useMeet, useMeetActions } from '../hooks/useMeet';
 import type {
@@ -168,8 +169,6 @@ function PodiumInput({
 
 // ─── Results ────────────────────────────────────────────────────────────────
 
-const PEOPLE_LIST_ID = 'ankam-known-people';
-
 function ResultsTab({ snapshot, actions }: { snapshot: Snapshot; actions: Actions }) {
   const { query, setQuery, filtered } = useSearch(snapshot.events);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -177,13 +176,6 @@ function ResultsTab({ snapshot, actions }: { snapshot: Snapshot; actions: Action
 
   return (
     <>
-      {/* Shared by every name field below. */}
-      <datalist id={PEOPLE_LIST_ID}>
-        {people.map((name) => (
-          <option key={name} value={name} />
-        ))}
-      </datalist>
-
       <SearchBox value={query} onChange={setQuery} />
 
       <ul className="mt-4 space-y-2">
@@ -193,6 +185,7 @@ function ResultsTab({ snapshot, actions }: { snapshot: Snapshot; actions: Action
             event={event}
             snapshot={snapshot}
             actions={actions}
+            people={people}
             open={openId === event.id}
             onToggle={() => setOpenId((id) => (id === event.id ? null : event.id))}
           />
@@ -210,12 +203,14 @@ function ResultRow({
   event,
   snapshot,
   actions,
+  people,
   open,
   onToggle,
 }: {
   event: MeetEvent;
   snapshot: Snapshot;
   actions: Actions;
+  people: string[];
   open: boolean;
   onToggle: () => void;
 }) {
@@ -287,18 +282,13 @@ function ResultRow({
                   </select>
 
                   {event.individual && (
-                    <input
+                    <PersonInput
                       value={placing?.person ?? ''}
-                      onChange={(e) => setSlot(slot, { person: e.target.value })}
+                      onChange={(person) => setSlot(slot, { person })}
+                      people={people}
                       disabled={!placing?.teamId}
-                      placeholder="Name"
-                      aria-label={`${event.name} ${slot} place person`}
-                      // Offers everyone already recorded, so the same person is
-                      // spelled the same way each time.
-                      list={PEOPLE_LIST_ID}
-                      autoComplete="off"
-                      autoCapitalize="words"
-                      className="field min-w-[10rem] flex-1 disabled:opacity-40"
+                      label={`${event.name} ${slot} place person`}
+                      className="min-w-[10rem] flex-1"
                     />
                   )}
 
