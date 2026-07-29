@@ -33,6 +33,10 @@ jobs:
       - run: npm ci
 
       - name: Build
+        env:
+          # The Convex client URL is public by design — it ships inside the
+          # bundle either way — so it lives here rather than in a secret.
+          VITE_CONVEX_URL: https://valiant-buzzard-674.convex.cloud
         # Pages serves the site from /<repo>/, so the asset paths need it too.
         run: VITE_BASE="/${GITHUB_REPOSITORY#*/}/" npm run build
 
