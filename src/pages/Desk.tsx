@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { MEET, categoryLabel, defaultProgramme, eventLabel } from '../data/catalog';
 import { isSignedIn, signOut } from '../data/auth';
-import { knownPeople } from '../data/standings';
+import { peopleByTeam } from '../data/standings';
 import PersonInput from '../components/PersonInput';
 import { CategoryTag, MedalBadge, SegmentedControl, Tag, TeamDot } from '../components/ui';
 import { useMeet, useMeetActions } from '../hooks/useMeet';
@@ -172,7 +172,7 @@ function PodiumInput({
 function ResultsTab({ snapshot, actions }: { snapshot: Snapshot; actions: Actions }) {
   const { query, setQuery, filtered } = useSearch(snapshot.events);
   const [openId, setOpenId] = useState<string | null>(null);
-  const people = useMemo(() => knownPeople(snapshot), [snapshot]);
+  const people = useMemo(() => peopleByTeam(snapshot), [snapshot]);
 
   return (
     <>
@@ -210,7 +210,7 @@ function ResultRow({
   event: MeetEvent;
   snapshot: Snapshot;
   actions: Actions;
-  people: string[];
+  people: Record<string, string[]>;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -285,7 +285,7 @@ function ResultRow({
                     <PersonInput
                       value={placing?.person ?? ''}
                       onChange={(person) => setSlot(slot, { person })}
-                      people={people}
+                      people={placing?.teamId ? (people[placing.teamId] ?? []) : []}
                       disabled={!placing?.teamId}
                       label={`${event.name} ${slot} place person`}
                       className="min-w-[10rem] flex-1"

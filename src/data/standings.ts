@@ -29,6 +29,12 @@ export type PersonStanding = {
   /** Distinct events this person has been placed in. */
   events: number;
   rank: number;
+  /**
+   * Inferred from the men's/women's events they entered, so mixed-event points
+   * can still be credited under the right heading. Undefined when they have
+   * only ever appeared in mixed events.
+   */
+  category?: Category;
 };
 
 export type DecidedEvent = { event: MeetEvent; result: EventResult };
@@ -48,13 +54,22 @@ function nameKey(teamId: string, name: string): string {
   return `${teamId}::${normalizeName(name).toLowerCase()}`;
 }
 
-/** Every person already recorded, for the desk's name suggestions. */
-export function knownPeople(snapshot: Snapshot): string[] {
-  const names = new Set<string>();
+/**
+ * Names already recorded, grouped by batch, for the desk's suggestions. Keyed
+ * by batch because a person belongs to one — offering another batch's roster
+ * would invite exactly the cross-batch mix-up the suggestions exist to avoid.
+ */
+export function peopleByTeam(snapshot: Snapshot): Record<string, string[]> {
+  const byTeam = new Map<string, Set<string>>();
   forEachPlacing(snapshot, (_event, _index, placing) => {
-    if (placing.person) names.add(normalizeName(placing.person));
+    if (!placing.person) return;
+    let names = byTeam.get(placing.teamId);
+    if (!names) byTeam.set(placing.teamId, (names = new Set()));
+    names.add(normalizeName(placing.person));
   });
-  return [...names].sort((a, b) => a.localeCompare(b));
+  return Object.fromEntries(
+    [...byTeam].map(([teamId, names]) => [teamId, [...names].sort((a, b) => a.localeCompare(b))]),
+  );
 }
 
 /** Walks each recorded podium slot once, skipping results with no event. */
@@ -106,10 +121,12 @@ export function teamStandings(snapshot: Snapshot): TeamStanding[] {
  */
 export function personStandings(snapshot: Snapshot, category?: Category): PersonStanding[] {
   const rows = new Map<string, PersonStanding>();
+  // A mixed event does not say whether the person in it is a man or a woman,
+  // so their own men's/women's entries are counted and the majority decides.
+  const seen = new Map<string, { men: number; women: number }>();
 
   forEachPlacing(snapshot, (event, index, placing) => {
     if (!event.individual || !placing.person) return;
-    if (category && event.category !== category) return;
 
     // Same name within the same batch is the same person.
     const key = nameKey(placing.teamId, placing.person);
@@ -126,15 +143,31 @@ export function personStandings(snapshot: Snapshot, category?: Category): Person
         rank: 0,
       };
       rows.set(key, row);
+      seen.set(key, { men: 0, women: 0 });
     }
+
+    // Points always cover every event the person placed in, mixed included —
+    // filtering happens on the person below, never on the event.
     row.points += event.individual[index] ?? 0;
     row.events += 1;
     if (index === 0) row.golds += 1;
     else if (index === 1) row.silvers += 1;
     else row.bronzes += 1;
+
+    if (event.category === 'men') seen.get(key)!.men += 1;
+    else if (event.category === 'women') seen.get(key)!.women += 1;
   });
 
-  const sorted = [...rows.values()].sort(
+  for (const [key, row] of rows) {
+    const { men, women } = seen.get(key)!;
+    // Undefined when someone has only ever run mixed events — they still
+    // appear in the overall table, just not under either heading.
+    row.category = men > women ? 'men' : women > men ? 'women' : undefined;
+  }
+
+  const pool = category ? [...rows.values()].filter((r) => r.category === category) : [...rows.values()];
+
+  const sorted = pool.sort(
     (a, b) => b.points - a.points || b.golds - a.golds || a.name.localeCompare(b.name),
   );
 
