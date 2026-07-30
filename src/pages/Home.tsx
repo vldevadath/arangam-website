@@ -40,9 +40,14 @@ export default function Home() {
           className="lanes pointer-events-none absolute inset-x-0 bottom-0 h-40 opacity-40"
         />
 
-        <p className="animate-rise relative px-2 font-display text-[10px] tracking-[0.32em] text-crest uppercase sm:text-[11px] sm:tracking-[0.4em]">
-          {MEET.union}
-        </p>
+        <div className="animate-rise relative flex flex-col items-center gap-1.5 px-2">
+          <p className="font-display text-[10px] tracking-[0.28em] text-crest uppercase sm:text-[11px] sm:tracking-[0.36em]">
+            {MEET.department}
+          </p>
+          <p className="font-display text-[10px] tracking-[0.28em] text-ink-secondary uppercase sm:text-[11px] sm:tracking-[0.36em]">
+            {MEET.union}
+          </p>
+        </div>
 
         <div className="animate-rise relative mt-5 sm:mt-6" style={{ animationDelay: '80ms' }}>
           <div

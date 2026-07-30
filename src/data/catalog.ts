@@ -130,6 +130,7 @@ export const MEET = {
   name: 'ANKAM',
   edition: '2025–2026',
   tagline: 'Interbatch Sports',
+  department: 'Department of Physical Education',
   union: "Agastya Students' Union 25–26",
   university: 'Kerala Agricultural University',
   college: 'College of Agriculture, Vellayani',

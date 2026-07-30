@@ -18,8 +18,9 @@ export default function Footer() {
 
         <div>
           <p className="eyebrow">Organised by</p>
-          <p className="mt-2 text-sm text-ink-secondary">{MEET.union}</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
+          <p className="mt-2 text-sm text-ink-secondary">{MEET.department}</p>
+          <p className="text-sm text-ink-secondary">{MEET.union}</p>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-ink-muted">
             {MEET.university}
             <br />
             {MEET.college}
@@ -51,7 +52,8 @@ export default function Footer() {
 
       <div className="rule" />
       <p className="py-4 text-center text-[11px] text-ink-muted">
-        © {MEET.edition} {MEET.union}. Points as per the official {MEET.name} scoring sheet.
+        © {MEET.edition} {MEET.department} & {MEET.union}. Points as per the official {MEET.name}{' '}
+        scoring sheet.
       </p>
     </footer>
   );

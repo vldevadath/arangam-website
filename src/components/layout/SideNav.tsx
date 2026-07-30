@@ -103,7 +103,9 @@ export default function SideNav({ open, onClose }: Props) {
         </nav>
 
         <div className="border-t border-pitch-line px-5 py-4">
-          <p className="font-display text-[10px] tracking-[0.25em] text-crest-dim uppercase">
+          <p className="font-display text-[10px] leading-relaxed tracking-[0.2em] text-crest-dim uppercase">
+            {MEET.department}
+            <br />
             {MEET.union}
           </p>
           <p className="mt-1.5 text-[11px] leading-relaxed text-ink-muted">

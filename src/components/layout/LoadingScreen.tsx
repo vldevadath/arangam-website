@@ -299,8 +299,14 @@ export default function LoadingScreen({ onComplete }: Props) {
 
       <div className="pointer-events-none relative z-10 px-6 text-center">
         <p
-          className="animate-rise font-display text-[10px] tracking-[0.38em] text-crest uppercase sm:text-[11px]"
+          className="animate-rise font-display text-[10px] tracking-[0.3em] text-crest uppercase sm:text-[11px] sm:tracking-[0.34em]"
           style={{ animationDelay: '150ms' }}
+        >
+          {MEET.department}
+        </p>
+        <p
+          className="animate-rise mt-1.5 font-display text-[10px] tracking-[0.3em] text-ink-secondary uppercase sm:text-[11px] sm:tracking-[0.34em]"
+          style={{ animationDelay: '220ms' }}
         >
           {MEET.union}
         </p>
