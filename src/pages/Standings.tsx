@@ -19,6 +19,8 @@ import {
   ATHLETICS_CHAMPION_POINTS,
   athleticsComplete,
   athleticsStandings,
+  categoryWeight,
+  formatPoints,
   gamesStandings,
   type TeamStanding,
 } from '../data/standings';
@@ -99,8 +101,9 @@ export default function Standings() {
   const accepts = useMemo(() => {
     const byView: Record<View, (e: MeetEvent) => boolean> = {
       games: (e) => e.discipline === 'game',
-      'ath-men': (e) => e.discipline === 'athletics' && e.category === 'men',
-      'ath-women': (e) => e.discipline === 'athletics' && e.category === 'women',
+      // Mixed feeds both gendered tables at half, so it belongs in both ledgers.
+      'ath-men': (e) => e.discipline === 'athletics' && categoryWeight(e, 'men') > 0,
+      'ath-women': (e) => e.discipline === 'athletics' && categoryWeight(e, 'women') > 0,
       'ath-all': (e) => e.discipline === 'athletics',
       overall: () => true,
     };
@@ -108,26 +111,28 @@ export default function Standings() {
   }, [view]);
 
   /** Per-event points per batch — the ledger that adds up to each total. */
-  const ledger = useMemo(
-    () =>
-      snapshot.events
-        .filter(accepts)
-        .filter((event) => snapshot.results[event.id])
-        .map((event) => {
-          const result = snapshot.results[event.id];
-          const points: Record<string, number> = {};
-          const places: Record<string, number> = {};
-          (['first', 'second', 'third'] as const).forEach((slot, i) => {
-            const placing = result[slot];
-            if (placing?.teamId) {
-              points[placing.teamId] = (points[placing.teamId] ?? 0) + (event.overall[i] ?? 0);
-              places[placing.teamId] = i;
-            }
-          });
-          return { event, points, places };
-        }),
-    [snapshot.events, snapshot.results, accepts],
-  );
+  const ledger = useMemo(() => {
+    const category = view === 'ath-men' ? 'men' : view === 'ath-women' ? 'women' : undefined;
+    return snapshot.events
+      .filter(accepts)
+      .filter((event) => snapshot.results[event.id])
+      .map((event) => {
+        const result = snapshot.results[event.id];
+        // Half a mixed placing on a gendered table, whole everywhere else.
+        const weight = category ? categoryWeight(event, category) : 1;
+        const points: Record<string, number> = {};
+        const places: Record<string, number> = {};
+        (['first', 'second', 'third'] as const).forEach((slot, i) => {
+          const placing = result[slot];
+          if (placing?.teamId) {
+            points[placing.teamId] =
+              (points[placing.teamId] ?? 0) + (event.overall[i] ?? 0) * weight;
+            places[placing.teamId] = i;
+          }
+        });
+        return { event, points, places, split: weight !== 1 };
+      });
+  }, [snapshot.events, snapshot.results, accepts, view]);
 
   return (
     <>
@@ -289,7 +294,7 @@ export default function Standings() {
                           {podiums}
                         </td>
                         <td className="score py-3.5 pr-4 text-right text-[13px] text-ink-muted">
-                          {gap === 0 ? '—' : `−${gap}`}
+                          {gap === 0 ? '—' : `−${formatPoints(gap)}`}
                         </td>
 
                         {awardsBonus && (
@@ -315,7 +320,7 @@ export default function Standings() {
                             className="score text-[22px]"
                             style={{ color: first ? MEDALS[0].text : 'var(--color-ink-primary)' }}
                           >
-                            {team.total}
+                            {formatPoints(team.total)}
                           </span>
                         </td>
                       </tr>
@@ -368,7 +373,7 @@ export default function Standings() {
                         className="score shrink-0 text-[22px]"
                         style={{ color: first ? MEDALS[0].text : 'var(--color-ink-primary)' }}
                       >
-                        {team.total}
+                        {formatPoints(team.total)}
                       </span>
                     </div>
 
@@ -410,7 +415,7 @@ export default function Standings() {
                       <span>
                         Gap{' '}
                         <span className="score text-ink-secondary">
-                          {gap === 0 ? '—' : `−${gap}`}
+                          {gap === 0 ? '—' : `−${formatPoints(gap)}`}
                         </span>
                       </span>
                     </div>
@@ -459,7 +464,7 @@ export default function Standings() {
                       </tr>
                     </thead>
                     <tbody>
-                      {ledger.map(({ event, points, places }) => (
+                      {ledger.map(({ event, points, places, split }) => (
                         <tr
                           key={event.id}
                           className="border-b border-white/[0.04] transition-colors last:border-0 hover:bg-white/[0.025]"
@@ -470,6 +475,7 @@ export default function Standings() {
                                 {eventLabel(event)}
                               </span>
                               {event.individual && <Tag tone="flood">Ind</Tag>}
+                              {split && <Tag tone="turf">Split</Tag>}
                             </span>
                           </td>
                           {rows.map((team) => {
@@ -481,7 +487,7 @@ export default function Standings() {
                               >
                                 {gained ? (
                                   <span style={{ color: MEDALS[places[team.id]]?.text }}>
-                                    {gained}
+                                    {formatPoints(gained)}
                                   </span>
                                 ) : (
                                   <span className="text-pitch-line">·</span>
@@ -500,9 +506,11 @@ export default function Standings() {
                         {rows.map((team) => (
                           <td key={team.id} className="score px-3 py-3 text-center text-[15px]">
                             <span style={{ color: team.colorHex }}>
-                              {view === 'overall'
-                                ? team.gamePoints + team.athleticsPoints
-                                : team.total}
+                              {formatPoints(
+                                view === 'overall'
+                                  ? team.gamePoints + team.athleticsPoints
+                                  : team.total,
+                              )}
                             </span>
                           </td>
                         ))}
@@ -529,7 +537,7 @@ export default function Standings() {
                                 className="score text-[13px]"
                                 style={{ color: MEDALS[places[team.id]]?.text }}
                               >
-                                +{points[team.id]}
+                                +{formatPoints(points[team.id])}
                               </span>
                             </li>
                           ))}
@@ -636,7 +644,7 @@ function PodiumCard({
             {settled ? 'Champions' : 'Leading'}
           </span>
         ) : (
-          <span className="score text-[11px] text-ink-muted">−{gap} pts</span>
+          <span className="score text-[11px] text-ink-muted">−{formatPoints(gap)} pts</span>
         )}
       </div>
 
@@ -657,7 +665,7 @@ function PodiumCard({
             className={`score leading-none ${first ? 'text-4xl' : 'text-3xl'}`}
             style={{ color: medal.text }}
           >
-            {team.total}
+            {formatPoints(team.total)}
           </p>
           {bonus !== undefined && team.total > 0 && (
             <p

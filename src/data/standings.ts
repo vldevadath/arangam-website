@@ -121,19 +121,42 @@ function emptyRows(snapshot: Snapshot): Map<string, TeamStanding> {
   );
 }
 
+/**
+ * How much of an event's points count towards a given category's table.
+ *
+ * A mixed event is raced by men and women together, so its points are split
+ * evenly: winning the mixed relay is worth 5 on the men's side and 5 on the
+ * women's. Second and third split the same way, which is where the halves in
+ * those tables come from.
+ */
+export function categoryWeight(event: MeetEvent, category?: Category): number {
+  if (!category) return 1; // the combined table counts everything once
+  if (event.category === category) return 1;
+  if (event.category === 'mixed') return 0.5;
+  return 0;
+}
+
 /** Tallies overall points and medals across the events a filter accepts. */
-function tally(snapshot: Snapshot, accept: (event: MeetEvent) => boolean): Map<string, TeamStanding> {
+function tally(
+  snapshot: Snapshot,
+  weightOf: (event: MeetEvent) => number,
+): Map<string, TeamStanding> {
   const rows = emptyRows(snapshot);
   forEachPlacing(snapshot, (event, index, placing) => {
-    if (!accept(event)) return;
+    const weight = weightOf(event);
+    if (weight <= 0) return;
     const row = rows.get(placing.teamId);
     if (!row) return;
-    const points = event.overall[index] ?? 0;
+    const points = (event.overall[index] ?? 0) * weight;
     if (event.discipline === 'game') row.gamePoints += points;
     else row.athleticsPoints += points;
-    if (index === 0) row.golds += 1;
-    else if (index === 1) row.silvers += 1;
-    else row.bronzes += 1;
+    // A shared mixed placing is one medal on the combined table, not one on
+    // each side — only a whole entry in this category counts as a medal.
+    if (weight === 1) {
+      if (index === 0) row.golds += 1;
+      else if (index === 1) row.silvers += 1;
+      else row.bronzes += 1;
+    }
   });
   return rows;
 }
@@ -156,7 +179,7 @@ export function athleticsComplete(snapshot: Snapshot): boolean {
 
 /** The games championship — points as won, event by event. */
 export function gamesStandings(snapshot: Snapshot): TeamStanding[] {
-  const rows = tally(snapshot, isGame);
+  const rows = tally(snapshot, (e) => (isGame(e) ? 1 : 0));
   for (const row of rows.values()) row.total = row.gamePoints;
   return rankBy(rows.values());
 }
@@ -166,7 +189,7 @@ export function gamesStandings(snapshot: Snapshot): TeamStanding[] {
  * category to get the men's or women's table that decides the 10 / 6 / 2.
  */
 export function athleticsStandings(snapshot: Snapshot, category?: Category): TeamStanding[] {
-  const rows = tally(snapshot, (e) => isAthletics(e) && (!category || e.category === category));
+  const rows = tally(snapshot, (e) => (isAthletics(e) ? categoryWeight(e, category) : 0));
   for (const row of rows.values()) row.total = row.athleticsPoints;
   return rankBy(rows.values());
 }
@@ -197,7 +220,7 @@ export function athleticsChampionPoints(snapshot: Snapshot): Record<string, numb
  * tables, once athletics is complete.
  */
 export function teamStandings(snapshot: Snapshot): TeamStanding[] {
-  const rows = tally(snapshot, () => true);
+  const rows = tally(snapshot, () => 1);
   const bonus = athleticsChampionPoints(snapshot);
   for (const row of rows.values()) {
     row.athleticsBonus = bonus[row.id] ?? 0;
@@ -304,6 +327,11 @@ export function meetProgress(snapshot: Snapshot): MeetProgress {
     percent: total ? Math.round((decided / total) * 100) : 0,
     pointsAwarded,
   };
+}
+
+/** Splitting a mixed placing yields halves; show 5 as "5" and 2.5 as "2.5". */
+export function formatPoints(points: number): string {
+  return Number.isInteger(points) ? String(points) : points.toFixed(1);
 }
 
 export function teamName(teams: Team[], teamId: string): string {
