@@ -1,7 +1,14 @@
 // src/pages/Standings.tsx
-// The championship board. A podium strip for the shape of the race, a league
-// table for the detail behind it, and the event-by-event ledger those totals
-// are built from.
+// Five point tables, one page:
+//
+//   Games              points as won, straight into the overall total
+//   Athletics · Men    decides 10 / 6 / 2 towards the overall total
+//   Athletics · Women  likewise
+//   Athletics          every athletics event, mixed included — the full picture
+//   Overall            games points plus the athletics bonus; the championship
+//
+// Each view ranks on its own points and traces them back through a ledger of
+// only its own events.
 
 import { useMemo, useState } from 'react';
 import { Trophy } from 'lucide-react';
@@ -15,39 +22,96 @@ import {
   gamesStandings,
   type TeamStanding,
 } from '../data/standings';
+import type { MeetEvent } from '../data/types';
 import { useMeet } from '../hooks/useMeet';
 
-type View = 'overall' | 'games' | 'athletics';
+type View = 'games' | 'ath-men' | 'ath-women' | 'ath-all' | 'overall';
+
+const VIEWS: ReadonlyArray<{ value: View; label: string; eyebrow: string; blurb: string }> = [
+  {
+    value: 'games',
+    label: 'Games',
+    eyebrow: 'Games championship',
+    blurb: 'Points as won, event by event. These carry straight into the overall championship.',
+  },
+  {
+    value: 'ath-men',
+    label: 'Ath · Men',
+    eyebrow: "Athletics · Men's championship",
+    blurb: "Men's athletics only. The top three carry 10 / 6 / 2 into the overall championship.",
+  },
+  {
+    value: 'ath-women',
+    label: 'Ath · Women',
+    eyebrow: "Athletics · Women's championship",
+    blurb: "Women's athletics only. The top three carry 10 / 6 / 2 into the overall championship.",
+  },
+  {
+    value: 'ath-all',
+    label: 'Athletics',
+    eyebrow: 'Athletics championship',
+    blurb:
+      'Every athletics event, mixed included. Shown for the full picture — the overall championship is fed by the men’s and women’s tables, not by this one.',
+  },
+  {
+    value: 'overall',
+    label: 'Overall',
+    eyebrow: 'Overall championship',
+    blurb: 'Games points as won, plus the 10 / 6 / 2 earned for topping the athletics tables.',
+  },
+];
+
+/** The two views whose ranking hands out the athletics bonus. */
+const AWARDS_BONUS: View[] = ['ath-men', 'ath-women'];
 
 export default function Standings() {
   const { snapshot, teams, progress } = useMeet();
   const [view, setView] = useState<View>('overall');
 
   const games = useMemo(() => gamesStandings(snapshot), [snapshot]);
-  const athletics = useMemo(() => athleticsStandings(snapshot), [snapshot]);
-  const athleticsMen = useMemo(() => athleticsStandings(snapshot, 'men'), [snapshot]);
-  const athleticsWomen = useMemo(() => athleticsStandings(snapshot, 'women'), [snapshot]);
+  const athAll = useMemo(() => athleticsStandings(snapshot), [snapshot]);
+  const athMen = useMemo(() => athleticsStandings(snapshot, 'men'), [snapshot]);
+  const athWomen = useMemo(() => athleticsStandings(snapshot, 'women'), [snapshot]);
   const trackDone = useMemo(() => athleticsComplete(snapshot), [snapshot]);
 
-  const rows = view === 'games' ? games : view === 'athletics' ? athletics : teams;
+  const meta = VIEWS.find((v) => v.value === view)!;
+  const awardsBonus = AWARDS_BONUS.includes(view);
 
-  const leader = rows[0];
-  const leaderTotal = leader?.total ?? 0;
-  const maxTotal = Math.max(1, leaderTotal);
-  const scoringStarted = progress.decided > 0;
-  const complete = progress.total > 0 && progress.decided === progress.total;
+  const rows =
+    view === 'games'
+      ? games
+      : view === 'ath-men'
+        ? athMen
+        : view === 'ath-women'
+          ? athWomen
+          : view === 'ath-all'
+            ? athAll
+            : teams;
+
+  const leaderTotal = rows[0]?.total ?? 0;
+  const scoringStarted = rows.some((r) => r.total > 0);
+  const meetComplete = progress.total > 0 && progress.decided === progress.total;
+  // Games only settles with the whole meet; the athletics tables settle when
+  // athletics does.
+  const settled = view === 'overall' || view === 'games' ? meetComplete : trackDone;
+
+  /** Which events feed the table on screen. */
+  const accepts = useMemo(() => {
+    const byView: Record<View, (e: MeetEvent) => boolean> = {
+      games: (e) => e.discipline === 'game',
+      'ath-men': (e) => e.discipline === 'athletics' && e.category === 'men',
+      'ath-women': (e) => e.discipline === 'athletics' && e.category === 'women',
+      'ath-all': (e) => e.discipline === 'athletics',
+      overall: () => true,
+    };
+    return byView[view];
+  }, [view]);
 
   /** Per-event points per batch — the ledger that adds up to each total. */
   const ledger = useMemo(
     () =>
       snapshot.events
-        .filter((event) =>
-          view === 'games'
-            ? event.discipline === 'game'
-            : view === 'athletics'
-              ? event.discipline === 'athletics'
-              : true,
-        )
+        .filter(accepts)
         .filter((event) => snapshot.results[event.id])
         .map((event) => {
           const result = snapshot.results[event.id];
@@ -62,26 +126,12 @@ export default function Standings() {
           });
           return { event, points, places };
         }),
-    [snapshot.events, snapshot.results, view],
+    [snapshot.events, snapshot.results, accepts],
   );
 
   return (
     <>
-      <PageHeader
-        eyebrow={
-          view === 'games'
-            ? 'Games championship'
-            : view === 'athletics'
-              ? 'Athletics championship'
-              : 'Overall championship'
-        }
-        title="Standings"
-        subtitle={
-          complete
-            ? 'All events decided. Final standings.'
-            : `${progress.decided} of ${progress.total} events decided · ${progress.pointsAwarded} points awarded so far.`
-        }
-      >
+      <PageHeader eyebrow={meta.eyebrow} title="Standings" subtitle={meta.blurb}>
         <div className="max-w-md">
           <div className="h-1.5 overflow-hidden rounded-full bg-pitch-line">
             <div
@@ -90,19 +140,15 @@ export default function Standings() {
             />
           </div>
           <p className="score mt-2 text-[11px] text-ink-muted">
-            {progress.percent}% of the meet complete
+            {progress.decided} of {progress.total} events decided · {progress.percent}%
           </p>
         </div>
 
-        <div className="mt-5 overflow-x-auto pb-1">
+        <div className="-mx-4 mt-5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
           <SegmentedControl
             value={view}
             onChange={setView}
-            options={[
-              { value: 'overall', label: 'Overall' },
-              { value: 'games', label: 'Games' },
-              { value: 'athletics', label: 'Athletics' },
-            ]}
+            options={VIEWS.map(({ value, label }) => ({ value, label }))}
           />
         </div>
       </PageHeader>
@@ -110,7 +156,7 @@ export default function Standings() {
       <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         {!scoringStarted ? (
           <EmptyState
-            title="The board is empty"
+            title="Nothing on this table yet"
             hint="Standings build themselves as the results desk declares podiums. Until then, the programme and its points are on the events page."
           />
         ) : (
@@ -123,12 +169,20 @@ export default function Standings() {
                   team={team}
                   place={i as 0 | 1 | 2}
                   gap={leaderTotal - team.total}
-                  complete={complete}
+                  settled={settled}
+                  bonus={awardsBonus ? ATHLETICS_CHAMPION_POINTS[i] : undefined}
+                  bonusAwarded={trackDone}
                 />
               ))}
             </div>
 
-            {/* ── League table ───────────────────────────────────────── */}
+            {awardsBonus && !trackDone && (
+              <p className="mt-4 inline-flex rounded-md border border-crest/25 bg-crest/8 px-3 py-2 text-[12px] text-crest-bright">
+                Provisional — the 10 / 6 / 2 counts once every athletics event is decided.
+              </p>
+            )}
+
+            {/* ── Full table ─────────────────────────────────────────── */}
             <div className="mt-10 flex items-baseline justify-between gap-4">
               <h2 className="font-display text-xl tracking-[0.08em] text-ink-primary uppercase sm:text-2xl">
                 Full table
@@ -138,7 +192,7 @@ export default function Standings() {
               </p>
             </div>
 
-            {/* Desktop: a dense, aligned league table */}
+            {/* Desktop */}
             <div className="panel mt-4 hidden overflow-hidden md:block">
               <table className="w-full border-collapse text-left">
                 <thead>
@@ -148,20 +202,21 @@ export default function Standings() {
                     {view === 'overall' && <Th className="text-right">Games</Th>}
                     {view === 'overall' && (
                       <Th className="text-right" title="Earned for topping the athletics tables">
-                        Athletics&nbsp;bonus
+                        Athletics
                       </Th>
                     )}
-                    <Th className="w-12 text-center" title="First places">
+                    <Th className="w-12 text-center">
                       <span style={{ color: MEDALS[0].text }}>1st</span>
                     </Th>
-                    <Th className="w-12 text-center" title="Second places">
+                    <Th className="w-12 text-center">
                       <span style={{ color: MEDALS[1].text }}>2nd</span>
                     </Th>
-                    <Th className="w-12 text-center" title="Third places">
+                    <Th className="w-12 text-center">
                       <span style={{ color: MEDALS[2].text }}>3rd</span>
                     </Th>
                     <Th className="w-16 text-right">Podiums</Th>
                     <Th className="w-16 text-right">Gap</Th>
+                    {awardsBonus && <Th className="w-16 text-right">Bonus</Th>}
                     <Th className="w-20 text-right">Points</Th>
                   </tr>
                 </thead>
@@ -170,6 +225,10 @@ export default function Standings() {
                     const podiums = team.golds + team.silvers + team.bronzes;
                     const gap = leaderTotal - team.total;
                     const first = team.rank === 1;
+                    const bonus =
+                      awardsBonus && team.total > 0
+                        ? ATHLETICS_CHAMPION_POINTS[team.rank - 1]
+                        : undefined;
                     return (
                       <tr
                         key={team.id}
@@ -177,11 +236,13 @@ export default function Standings() {
                         style={first ? { background: 'rgb(247 206 91 / 0.045)' } : undefined}
                       >
                         <td className="relative py-3.5 pr-2 pl-4 text-center">
-                          {/* Rank rail — gold for the leader, batch colour below */}
                           <span
                             aria-hidden
                             className="absolute inset-y-0 left-0 w-[3px]"
-                            style={{ background: first ? MEDALS[0].text : team.colorHex, opacity: first ? 1 : 0.5 }}
+                            style={{
+                              background: first ? MEDALS[0].text : team.colorHex,
+                              opacity: first ? 1 : 0.5,
+                            }}
                           />
                           <span className="score text-[15px] text-ink-primary">{team.rank}</span>
                         </td>
@@ -192,14 +253,13 @@ export default function Standings() {
                             <span className="font-display text-[16px] tracking-[0.04em] text-ink-primary">
                               {team.name}
                             </span>
-                            {first && <Tag tone="crest">{complete ? 'Champions' : 'Leading'}</Tag>}
+                            {first && <Tag tone="crest">{settled ? 'Champions' : 'Leading'}</Tag>}
                           </div>
-                          {/* Share of the leader's points */}
                           <div className="mt-2 h-[3px] w-40 overflow-hidden rounded-full bg-pitch-line">
                             <div
                               className="h-full rounded-full transition-[width] duration-700"
                               style={{
-                                width: `${(team.total / maxTotal) * 100}%`,
+                                width: `${(team.total / Math.max(1, leaderTotal)) * 100}%`,
                                 background: team.colorHex,
                               }}
                             />
@@ -231,6 +291,25 @@ export default function Standings() {
                         <td className="score py-3.5 pr-4 text-right text-[13px] text-ink-muted">
                           {gap === 0 ? '—' : `−${gap}`}
                         </td>
+
+                        {awardsBonus && (
+                          <td className="score py-3.5 pr-4 text-right text-[14px]">
+                            {bonus ? (
+                              <span
+                                style={{
+                                  color: trackDone
+                                    ? MEDALS[team.rank - 1]?.text
+                                    : 'var(--color-ink-muted)',
+                                }}
+                              >
+                                +{bonus}
+                              </span>
+                            ) : (
+                              <span className="text-pitch-line">—</span>
+                            )}
+                          </td>
+                        )}
+
                         <td className="py-3.5 pr-4 text-right">
                           <span
                             className="score text-[22px]"
@@ -246,17 +325,24 @@ export default function Standings() {
               </table>
             </div>
 
-            {/* Mobile: the same table as stacked rows */}
+            {/* Mobile */}
             <ul className="mt-4 space-y-2.5 md:hidden">
               {rows.map((team) => {
                 const gap = leaderTotal - team.total;
                 const first = team.rank === 1;
+                const bonus =
+                  awardsBonus && team.total > 0
+                    ? ATHLETICS_CHAMPION_POINTS[team.rank - 1]
+                    : undefined;
                 return (
                   <li key={team.id} className="panel relative overflow-hidden p-4">
                     <span
                       aria-hidden
                       className="absolute inset-y-0 left-0 w-[3px]"
-                      style={{ background: first ? MEDALS[0].text : team.colorHex, opacity: first ? 1 : 0.5 }}
+                      style={{
+                        background: first ? MEDALS[0].text : team.colorHex,
+                        opacity: first ? 1 : 0.5,
+                      }}
                     />
                     <div className="flex items-center gap-3">
                       <span className="score w-5 shrink-0 text-center text-[15px] text-ink-primary">
@@ -266,6 +352,18 @@ export default function Standings() {
                       <span className="min-w-0 flex-1 truncate font-display text-[17px] tracking-[0.04em] text-ink-primary">
                         {team.name}
                       </span>
+                      {bonus && (
+                        <span
+                          className="score shrink-0 text-[13px]"
+                          style={{
+                            color: trackDone
+                              ? MEDALS[team.rank - 1]?.text
+                              : 'var(--color-ink-muted)',
+                          }}
+                        >
+                          +{bonus}
+                        </span>
+                      )}
                       <span
                         className="score shrink-0 text-[22px]"
                         style={{ color: first ? MEDALS[0].text : 'var(--color-ink-primary)' }}
@@ -277,7 +375,10 @@ export default function Standings() {
                     <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-pitch-line">
                       <div
                         className="h-full rounded-full transition-[width] duration-700"
-                        style={{ width: `${(team.total / maxTotal) * 100}%`, background: team.colorHex }}
+                        style={{
+                          width: `${(team.total / Math.max(1, leaderTotal)) * 100}%`,
+                          background: team.colorHex,
+                        }}
                       />
                     </div>
 
@@ -288,7 +389,7 @@ export default function Standings() {
                             Games <span className="score text-ink-secondary">{team.gamePoints}</span>
                           </span>
                           <span>
-                            Athletics bonus{' '}
+                            Athletics{' '}
                             <span className="score text-crest-bright">
                               {team.athleticsBonus > 0 ? `+${team.athleticsBonus}` : '—'}
                             </span>
@@ -306,57 +407,17 @@ export default function Standings() {
                           </span>
                         ))}
                       </span>
-                      <span>Gap <span className="score text-ink-secondary">{gap === 0 ? '—' : `−${gap}`}</span></span>
+                      <span>
+                        Gap{' '}
+                        <span className="score text-ink-secondary">
+                          {gap === 0 ? '—' : `−${gap}`}
+                        </span>
+                      </span>
                     </div>
                   </li>
                 );
               })}
             </ul>
-
-            {/* ── The two tables that decide the 10 / 6 / 2 ──────────── */}
-            {view === 'athletics' && (
-              <>
-                <div className="mt-12 sm:mt-14">
-                  <h2 className="font-display text-xl tracking-[0.08em] text-ink-primary uppercase sm:text-2xl">
-                    Champion batches
-                  </h2>
-                  <p className="mt-1.5 text-[13px] text-ink-muted">
-                    Topping either table carries{' '}
-                    <span className="score text-crest-bright">
-                      {ATHLETICS_CHAMPION_POINTS.join(' / ')}
-                    </span>{' '}
-                    into the overall standings.{' '}
-                    {trackDone
-                      ? 'Athletics is complete, so these are counted.'
-                      : 'They are awarded once every athletics event is decided.'}
-                  </p>
-                </div>
-
-                {!trackDone && (
-                  <p className="mt-3 inline-flex items-center gap-2 rounded-md border border-crest/25 bg-crest/8 px-3 py-2 text-[12px] text-crest-bright">
-                    Provisional — athletics is still running.
-                  </p>
-                )}
-
-                <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                  <ChampionshipTable title="Men" rows={athleticsMen} awarded={trackDone} />
-                  <ChampionshipTable title="Women" rows={athleticsWomen} awarded={trackDone} />
-                </div>
-              </>
-            )}
-
-            {/* ── How the overall total is built ─────────────────────── */}
-            {view === 'overall' && (
-              <p className="mt-5 text-[12px] leading-relaxed text-ink-muted">
-                Games points count as they are won. Athletics does not add its points directly —
-                instead the batches topping the men's and women's athletics tables carry{' '}
-                <span className="score text-ink-secondary">
-                  {ATHLETICS_CHAMPION_POINTS.join(' / ')}
-                </span>{' '}
-                into this total,{' '}
-                {trackDone ? 'now counted.' : 'once every athletics event is decided.'}
-              </p>
-            )}
 
             {/* ── Ledger ─────────────────────────────────────────────── */}
             <div className="mt-12 flex items-baseline justify-between gap-4 sm:mt-14">
@@ -368,105 +429,128 @@ export default function Standings() {
               </p>
             </div>
             <p className="mt-1.5 text-[13px] text-ink-muted">
-              Every point above, traced back to the event that awarded it.
+              Every point on this table, traced back to the event that awarded it.
             </p>
 
-            <div className="panel mt-4 hidden overflow-x-auto md:block">
-              <table className="w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-pitch-line bg-pitch-base/40">
-                    <Th>Event</Th>
-                    {teams.map((team) => (
-                      <th key={team.id} className="px-3 py-3 text-center">
-                        <span className="flex items-center justify-center gap-1.5">
-                          <TeamDot color={team.colorHex} size={6} />
-                          <span className="font-display text-[10px] font-500 tracking-[0.16em] text-ink-muted uppercase">
-                            {team.short}
-                          </span>
-                        </span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {ledger.map(({ event, points, places }) => (
-                    <tr
-                      key={event.id}
-                      className="border-b border-white/[0.04] transition-colors last:border-0 hover:bg-white/[0.025]"
-                    >
-                      <td className="py-2.5 pr-4 pl-4">
-                        <span className="flex items-center gap-2">
-                          <span className="text-[13px] whitespace-nowrap text-ink-secondary">
-                            {eventLabel(event)}
-                          </span>
-                          {event.individual && <Tag tone="flood">Ind</Tag>}
-                        </span>
-                      </td>
-                      {teams.map((team) => {
-                        const gained = points[team.id];
-                        const place = places[team.id];
-                        return (
-                          <td key={team.id} className="score px-3 py-2.5 text-center text-[13px]">
-                            {gained ? (
-                              <span style={{ color: MEDALS[place]?.text }}>{gained}</span>
-                            ) : (
-                              <span className="text-pitch-line">·</span>
-                            )}
+            {ledger.length === 0 ? (
+              <div className="mt-5">
+                <EmptyState
+                  title="Nothing on the ledger yet"
+                  hint="Once the results desk publishes a podium, the points it awarded appear here."
+                />
+              </div>
+            ) : (
+              <>
+                <div className="panel mt-5 hidden overflow-x-auto md:block">
+                  <table className="w-full border-collapse text-left">
+                    <thead>
+                      <tr className="border-b border-pitch-line bg-pitch-base/40">
+                        <Th>Event</Th>
+                        {rows.map((team) => (
+                          <th key={team.id} className="px-3 py-3 text-center">
+                            <span className="flex items-center justify-center gap-1.5">
+                              <TeamDot color={team.colorHex} size={6} />
+                              <span className="font-display text-[10px] font-500 tracking-[0.16em] text-ink-muted uppercase">
+                                {team.short}
+                              </span>
+                            </span>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ledger.map(({ event, points, places }) => (
+                        <tr
+                          key={event.id}
+                          className="border-b border-white/[0.04] transition-colors last:border-0 hover:bg-white/[0.025]"
+                        >
+                          <td className="py-2.5 pr-4 pl-4">
+                            <span className="flex items-center gap-2">
+                              <span className="text-[13px] whitespace-nowrap text-ink-secondary">
+                                {eventLabel(event)}
+                              </span>
+                              {event.individual && <Tag tone="flood">Ind</Tag>}
+                            </span>
                           </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t border-pitch-line bg-pitch-base/50">
-                    <td className="py-3 pr-4 pl-4 font-display text-[11px] tracking-[0.2em] text-ink-muted uppercase">
-                      Total
-                    </td>
-                    {teams.map((team) => (
-                      <td key={team.id} className="score px-3 py-3 text-center text-[15px]">
-                        <span style={{ color: team.colorHex }}>{team.total}</span>
-                      </td>
-                    ))}
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* Mobile ledger: only the batches that actually scored */}
-            <ul className="mt-4 space-y-2.5 md:hidden">
-              {ledger.map(({ event, points, places }) => (
-                <li key={event.id} className="panel p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[14px] text-ink-primary">{eventLabel(event)}</span>
-                    <CategoryTag category={event.category} />
-                  </div>
-                  <ul className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
-                    {teams
-                      .filter((team) => points[team.id])
-                      .map((team) => (
-                        <li key={team.id} className="flex items-center gap-1.5">
-                          <TeamDot color={team.colorHex} size={6} />
-                          <span className="text-[12px] text-ink-secondary">{team.short}</span>
-                          <span
-                            className="score text-[13px]"
-                            style={{ color: MEDALS[places[team.id]]?.text }}
-                          >
-                            +{points[team.id]}
-                          </span>
-                        </li>
+                          {rows.map((team) => {
+                            const gained = points[team.id];
+                            return (
+                              <td
+                                key={team.id}
+                                className="score px-3 py-2.5 text-center text-[13px]"
+                              >
+                                {gained ? (
+                                  <span style={{ color: MEDALS[places[team.id]]?.text }}>
+                                    {gained}
+                                  </span>
+                                ) : (
+                                  <span className="text-pitch-line">·</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
                       ))}
-                  </ul>
-                </li>
-              ))}
-            </ul>
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-pitch-line bg-pitch-base/50">
+                        <td className="py-3 pr-4 pl-4 font-display text-[11px] tracking-[0.2em] text-ink-muted uppercase">
+                          Points won
+                        </td>
+                        {rows.map((team) => (
+                          <td key={team.id} className="score px-3 py-3 text-center text-[15px]">
+                            <span style={{ color: team.colorHex }}>
+                              {view === 'overall'
+                                ? team.gamePoints + team.athleticsPoints
+                                : team.total}
+                            </span>
+                          </td>
+                        ))}
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
 
-            <p className="mt-5 text-[12px] text-ink-muted">
-              Colour marks the placing: <span style={{ color: MEDALS[0].text }}>first</span>,{' '}
-              <span style={{ color: MEDALS[1].text }}>second</span>,{' '}
-              <span style={{ color: MEDALS[2].text }}>third</span>. Totals are derived from the
-              declared podiums, so a corrected result re-scores the board immediately.
-            </p>
+                <ul className="mt-5 space-y-2.5 md:hidden">
+                  {ledger.map(({ event, points, places }) => (
+                    <li key={event.id} className="panel p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[14px] text-ink-primary">{eventLabel(event)}</span>
+                        <CategoryTag category={event.category} />
+                      </div>
+                      <ul className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
+                        {rows
+                          .filter((team) => points[team.id])
+                          .map((team) => (
+                            <li key={team.id} className="flex items-center gap-1.5">
+                              <TeamDot color={team.colorHex} size={6} />
+                              <span className="text-[12px] text-ink-secondary">{team.short}</span>
+                              <span
+                                className="score text-[13px]"
+                                style={{ color: MEDALS[places[team.id]]?.text }}
+                              >
+                                +{points[team.id]}
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {view === 'overall' && (
+              <p className="mt-5 text-[12px] leading-relaxed text-ink-muted">
+                The ledger shows points as they were won. Games points count into the total
+                directly; athletics does not — it arrives only as the{' '}
+                <span className="score text-ink-secondary">
+                  {ATHLETICS_CHAMPION_POINTS.join(' / ')}
+                </span>{' '}
+                earned for topping the men’s and women’s athletics tables,{' '}
+                {trackDone ? 'now counted.' : 'once every athletics event is decided.'}
+              </p>
+            )}
           </>
         )}
       </section>
@@ -495,67 +579,6 @@ function Th({
   );
 }
 
-function ChampionshipTable({
-  title,
-  rows,
-  awarded,
-}: {
-  title: string;
-  rows: TeamStanding[];
-  awarded: boolean;
-}) {
-  const scored = rows.filter((r) => r.total > 0);
-  return (
-    <div className="panel overflow-hidden">
-      <div className="flex items-baseline justify-between border-b border-pitch-line px-4 py-3">
-        <h3 className="font-display text-sm tracking-[0.2em] text-ink-primary uppercase">
-          Athletics · {title}
-        </h3>
-        <span className="font-display text-[10px] tracking-[0.2em] text-ink-muted uppercase">
-          {awarded ? 'Awarded' : 'Provisional'}
-        </span>
-      </div>
-
-      {scored.length === 0 ? (
-        <p className="px-4 py-8 text-center text-[13px] text-ink-muted">
-          No {title.toLowerCase()}'s athletics points yet.
-        </p>
-      ) : (
-        <ul>
-          {scored.map((team) => {
-            const bonus = ATHLETICS_CHAMPION_POINTS[team.rank - 1];
-            return (
-              <li
-                key={team.id}
-                className="flex items-center gap-3 border-b border-white/[0.04] px-4 py-2.5 last:border-0"
-              >
-                <span className="score w-5 text-center text-[13px] text-ink-muted">{team.rank}</span>
-                <TeamDot color={team.colorHex} size={7} />
-                <span className="min-w-0 flex-1 truncate text-[14px] text-ink-primary">
-                  {team.name}
-                </span>
-                <span className="score text-[14px] text-ink-secondary">{team.total}</span>
-                <span className="w-12 text-right">
-                  {bonus ? (
-                    <span
-                      className="score text-[13px]"
-                      style={{ color: awarded ? MEDALS[team.rank - 1]?.text : 'var(--color-ink-muted)' }}
-                    >
-                      +{bonus}
-                    </span>
-                  ) : (
-                    <span className="text-[13px] text-pitch-line">—</span>
-                  )}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 function MedalCell({ count, place }: { count: number; place: 0 | 1 | 2 }) {
   return (
     <td className="score py-3.5 text-center text-[14px]">
@@ -568,12 +591,17 @@ function PodiumCard({
   team,
   place,
   gap,
-  complete,
+  settled,
+  bonus,
+  bonusAwarded,
 }: {
   team: TeamStanding;
   place: 0 | 1 | 2;
   gap: number;
-  complete: boolean;
+  settled: boolean;
+  /** Shown on the two tables that hand out the athletics bonus. */
+  bonus?: number;
+  bonusAwarded?: boolean;
 }) {
   const medal = MEDALS[place];
   const first = place === 0;
@@ -583,7 +611,6 @@ function PodiumCard({
       className="panel relative overflow-hidden p-5"
       style={{ borderColor: first ? 'rgb(247 206 91 / 0.34)' : undefined }}
     >
-      {/* Medal-coloured cap */}
       <div
         aria-hidden
         className="absolute inset-x-0 top-0 h-0.5"
@@ -606,7 +633,7 @@ function PodiumCard({
         {first ? (
           <span className="flex items-center gap-1.5 font-display text-[10px] tracking-[0.24em] text-crest uppercase">
             <Trophy size={13} />
-            {complete ? 'Champions' : 'Leading'}
+            {settled ? 'Champions' : 'Leading'}
           </span>
         ) : (
           <span className="score text-[11px] text-ink-muted">−{gap} pts</span>
@@ -625,12 +652,22 @@ function PodiumCard({
             {team.golds}G · {team.silvers}S · {team.bronzes}B
           </p>
         </div>
-        <p
-          className={`score shrink-0 leading-none ${first ? 'text-4xl' : 'text-3xl'}`}
-          style={{ color: medal.text }}
-        >
-          {team.total}
-        </p>
+        <div className="shrink-0 text-right">
+          <p
+            className={`score leading-none ${first ? 'text-4xl' : 'text-3xl'}`}
+            style={{ color: medal.text }}
+          >
+            {team.total}
+          </p>
+          {bonus !== undefined && team.total > 0 && (
+            <p
+              className="score mt-1.5 text-[11px]"
+              style={{ color: bonusAwarded ? medal.text : 'var(--color-ink-muted)' }}
+            >
+              +{bonus} overall
+            </p>
+          )}
+        </div>
       </div>
     </article>
   );
