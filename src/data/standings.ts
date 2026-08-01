@@ -76,10 +76,13 @@ function nameKey(teamId: string, name: string): string {
 export function peopleByTeam(snapshot: Snapshot): Record<string, string[]> {
   const byTeam = new Map<string, Set<string>>();
   forEachPlacing(snapshot, (_event, _index, placing) => {
-    if (!placing.person) return;
-    let names = byTeam.get(placing.teamId);
-    if (!names) byTeam.set(placing.teamId, (names = new Set()));
-    names.add(normalizeName(placing.person));
+    for (const person of placing.people ?? []) {
+      const name = normalizeName(person);
+      if (!name) continue;
+      let names = byTeam.get(placing.teamId);
+      if (!names) byTeam.set(placing.teamId, (names = new Set()));
+      names.add(name);
+    }
   });
   return Object.fromEntries(
     [...byTeam].map(([teamId, names]) => [teamId, [...names].sort((a, b) => a.localeCompare(b))]),
@@ -241,36 +244,44 @@ export function personStandings(snapshot: Snapshot, category?: Category): Person
   const seen = new Map<string, { men: number; women: number }>();
 
   forEachPlacing(snapshot, (event, index, placing) => {
-    if (!event.individual || !placing.person) return;
+    if (!event.individual) return;
 
-    // Same name within the same batch is the same person.
-    const key = nameKey(placing.teamId, placing.person);
-    let row = rows.get(key);
-    if (!row) {
-      row = {
-        name: normalizeName(placing.person),
-        teamId: placing.teamId,
-        points: 0,
-        golds: 0,
-        silvers: 0,
-        bronzes: 0,
-        events: 0,
-        rank: 0,
-      };
-      rows.set(key, row);
-      seen.set(key, { men: 0, women: 0 });
+    // Everyone named on the placing is credited. Relays award no individual
+    // points at all, so their squads never reach this table.
+    const named = new Set(
+      (placing.people ?? []).map(normalizeName).filter((n) => n.length > 0),
+    );
+
+    for (const person of named) {
+      // Same name within the same batch is the same person.
+      const key = nameKey(placing.teamId, person);
+      let row = rows.get(key);
+      if (!row) {
+        row = {
+          name: person,
+          teamId: placing.teamId,
+          points: 0,
+          golds: 0,
+          silvers: 0,
+          bronzes: 0,
+          events: 0,
+          rank: 0,
+        };
+        rows.set(key, row);
+        seen.set(key, { men: 0, women: 0 });
+      }
+
+      // Points always cover every event the person placed in, mixed included —
+      // filtering happens on the person below, never on the event.
+      row.points += event.individual[index] ?? 0;
+      row.events += 1;
+      if (index === 0) row.golds += 1;
+      else if (index === 1) row.silvers += 1;
+      else row.bronzes += 1;
+
+      if (event.category === 'men') seen.get(key)!.men += 1;
+      else if (event.category === 'women') seen.get(key)!.women += 1;
     }
-
-    // Points always cover every event the person placed in, mixed included —
-    // filtering happens on the person below, never on the event.
-    row.points += event.individual[index] ?? 0;
-    row.events += 1;
-    if (index === 0) row.golds += 1;
-    else if (index === 1) row.silvers += 1;
-    else row.bronzes += 1;
-
-    if (event.category === 'men') seen.get(key)!.men += 1;
-    else if (event.category === 'women') seen.get(key)!.women += 1;
   });
 
   for (const [key, row] of rows) {

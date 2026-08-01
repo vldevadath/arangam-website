@@ -3,7 +3,8 @@ import { v } from 'convex/values';
 
 const placing = v.object({
   teamId: v.string(),
-  person: v.optional(v.string()),
+  // Everyone named in the placing — all four legs of a relay.
+  people: v.optional(v.array(v.string())),
 });
 
 const podium = v.array(v.number());
@@ -27,6 +28,8 @@ export default defineSchema({
     note: v.optional(v.string()),
     overall: podium,
     individual: v.optional(podium),
+    /** People sharing one placing: 1 for a race, 4 for a relay. */
+    crew: v.optional(v.number()),
     /** Keeps the programme in a stable, editable order. */
     position: v.number(),
   }).index('by_eventId', ['eventId']),

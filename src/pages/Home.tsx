@@ -238,8 +238,10 @@ export default function Home() {
                         </span>
                         <TeamDot color={team?.colorHex ?? '#626d7e'} size={6} />
                         <span className="shrink-0 text-ink-secondary">{team?.name ?? '—'}</span>
-                        {placing.person && (
-                          <span className="truncate text-ink-muted">· {placing.person}</span>
+                        {placing.people && placing.people.length > 0 && (
+                          <span className="truncate text-ink-muted">
+                            · {placing.people.join(' · ')}
+                          </span>
                         )}
                       </li>
                     );

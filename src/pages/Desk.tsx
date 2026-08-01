@@ -19,7 +19,14 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { MEET, categoryLabel, defaultProgramme, eventLabel } from '../data/catalog';
+import {
+  MEET,
+  categoryLabel,
+  crewSize,
+  defaultProgramme,
+  eventLabel,
+  namesPeople,
+} from '../data/catalog';
 import { isSignedIn, signOut } from '../data/auth';
 import { peopleByTeam } from '../data/standings';
 import PersonInput from '../components/PersonInput';
@@ -229,6 +236,22 @@ function ResultRow({
     setSaved(false);
   }, [open]);
 
+  const crew = crewSize(event);
+  const wantsNames = namesPeople(event);
+
+  /** Sets one crew member's name, leaving the others in place. */
+  function setPerson(slot: (typeof SLOTS)[number], index: number, name: string) {
+    setPodium((p) => {
+      const current = p[slot];
+      if (!current?.teamId) return p;
+      const people = [...(current.people ?? [])];
+      while (people.length <= index) people.push('');
+      people[index] = name;
+      return { ...p, [slot]: { ...current, people } };
+    });
+    setSaved(false);
+  }
+
   function setSlot(slot: (typeof SLOTS)[number], patch: Partial<Placing>) {
     setPodium((p) => {
       const next = { ...p };
@@ -265,8 +288,10 @@ function ResultRow({
             {SLOTS.map((slot, i) => {
               const placing = podium[slot];
               return (
-                <div key={slot} className="flex flex-wrap items-center gap-2.5">
-                  <MedalBadge place={i as 0 | 1 | 2} size="sm" />
+                <div key={slot} className="flex flex-wrap items-start gap-2.5">
+                  <span className="pt-1.5">
+                    <MedalBadge place={i as 0 | 1 | 2} size="sm" />
+                  </span>
                   <select
                     value={placing?.teamId ?? ''}
                     onChange={(e) => setSlot(slot, { teamId: e.target.value })}
@@ -281,19 +306,25 @@ function ResultRow({
                     ))}
                   </select>
 
-                  {event.individual && (
-                    <PersonInput
-                      value={placing?.person ?? ''}
-                      onChange={(person) => setSlot(slot, { person })}
-                      people={placing?.teamId ? (people[placing.teamId] ?? []) : []}
-                      disabled={!placing?.teamId}
-                      label={`${event.name} ${slot} place person`}
-                      className="min-w-[10rem] flex-1"
-                    />
+                  {wantsNames && (
+                    <div className="flex min-w-[10rem] flex-1 flex-col gap-2">
+                      {/* One field per crew member — a relay names all four. */}
+                      {Array.from({ length: crew }, (_, n) => (
+                        <PersonInput
+                          key={n}
+                          value={placing?.people?.[n] ?? ''}
+                          onChange={(person) => setPerson(slot, n, person)}
+                          people={placing?.teamId ? (people[placing.teamId] ?? []) : []}
+                          disabled={!placing?.teamId}
+                          placeholder={crew > 1 ? `Runner ${n + 1}` : 'Name'}
+                          label={`${event.name} ${slot} place person ${n + 1}`}
+                        />
+                      ))}
+                    </div>
                   )}
 
                   {/* Fixed width so the selects line up down the podium */}
-                  <span className="score w-16 shrink-0 text-right text-[12px] whitespace-nowrap text-ink-muted">
+                  <span className="score w-16 shrink-0 pt-2.5 text-right text-[12px] whitespace-nowrap text-ink-muted">
                     +{event.overall[i] ?? 0}
                     {event.individual ? ` · ${event.individual[i] ?? 0}i` : ''}
                   </span>
@@ -302,13 +333,18 @@ function ResultRow({
             })}
           </div>
 
-          {event.individual && (
+          {event.individual ? (
             <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
               The name is what puts a person on the individual championship, and their points add
               up across every event they place in. Capitals and extra spaces do not matter — pick
               from the suggestions so the spelling stays the same.
             </p>
-          )}
+          ) : wantsNames ? (
+            <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
+              All {crew} are shown on the results page. This event awards no individual points, so
+              the names are a record of who ran, not a score.
+            </p>
+          ) : null}
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <button
@@ -552,6 +588,7 @@ function ProgrammeRow({
             <CategoryTag category={event.category} />
             <Tag>{event.discipline === 'game' ? 'Game' : 'Athletics'}</Tag>
             {event.individual && <Tag tone="flood">Individual</Tag>}
+            {crewSize(event) > 1 && <Tag>Squad of {crewSize(event)}</Tag>}
             {decided && <Tag tone="turf">Decided</Tag>}
           </span>
         </span>
@@ -670,6 +707,35 @@ function ProgrammeRow({
             )}
           </div>
 
+          <div className="mt-5">
+            <label className="flex flex-wrap items-center gap-2.5">
+              <span className="font-display text-[10px] tracking-[0.2em] text-ink-muted uppercase">
+                People per placing
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={8}
+                value={draft.crew ?? 1}
+                aria-label={`${event.name} people per placing`}
+                onChange={(e) =>
+                  patch({ crew: Math.min(8, Math.max(1, Number(e.target.value) || 1)) })
+                }
+                className="field score w-16 px-2 text-center"
+              />
+              <span className="text-[11px] text-ink-muted">1 for a race · 4 for a relay squad</span>
+            </label>
+            {crewSize(draft) > 1 && (
+              <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
+                {crewSize(draft)} name fields appear per placing and every name is shown on the
+                results page.
+                {draft.individual
+                  ? ' Individual points go to each of them.'
+                  : ' This event has no individual points, so the names are a record of who ran, not a score.'}
+              </p>
+            )}
+          </div>
+
           <div className="mt-6 flex flex-wrap items-center gap-2">
             <button
               onClick={() => {
@@ -681,6 +747,7 @@ function ProgrammeRow({
                   note: draft.note?.trim() || undefined,
                   overall: draft.overall,
                   individual: draft.individual,
+                  crew: crewSize(draft) > 1 ? crewSize(draft) : undefined,
                 });
                 setSaved(true);
               }}

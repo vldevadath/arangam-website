@@ -75,6 +75,8 @@ const DEFAULT_ATHLETICS: MeetEvent[] = [
     overall: [...TRACK_POINTS],
     individual: [...INDIVIDUAL_POINTS],
   })),
+  // A relay is a squad effort: all four are named and shown, but it awards no
+  // individual points, so it cannot decide the individual championship.
   ...RELAYS.map(([slug, name, category]): MeetEvent => ({
     id: `${slug}-${SUFFIX[category]}`,
     name,
@@ -82,7 +84,7 @@ const DEFAULT_ATHLETICS: MeetEvent[] = [
     category,
     squad: '4',
     overall: [...RELAY_POINTS],
-    individual: [...INDIVIDUAL_POINTS],
+    crew: 4,
   })),
 ];
 
@@ -93,6 +95,16 @@ export function defaultProgramme(): MeetEvent[] {
     overall: [...e.overall] as Podium,
     individual: e.individual ? ([...e.individual] as Podium) : undefined,
   }));
+}
+
+/** People sharing one placing. Guards against a nonsensical stored value. */
+export function crewSize(event: MeetEvent): number {
+  return Math.min(Math.max(Math.round(event.crew ?? 1), 1), 8);
+}
+
+/** Whether the desk should ask for names at all. */
+export function namesPeople(event: MeetEvent): boolean {
+  return Boolean(event.individual) || crewSize(event) > 1;
 }
 
 export const DEFAULT_EVENT_COUNT = DEFAULT_GAMES.length + DEFAULT_ATHLETICS.length;

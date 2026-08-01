@@ -76,9 +76,10 @@ export default function Results() {
                                 {teamName(snapshot.teams, placing.teamId)}
                               </span>
                             </div>
-                            {placing.person && (
-                              <p className="mt-0.5 truncate text-[12px] text-ink-muted">
-                                {placing.person}
+                            {placing.people && placing.people.length > 0 && (
+                              // Every leg of a relay, not just the first name.
+                              <p className="mt-0.5 text-[12px] leading-relaxed text-ink-muted">
+                                {placing.people.join(' · ')}
                               </p>
                             )}
                           </div>

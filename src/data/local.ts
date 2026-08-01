@@ -73,16 +73,31 @@ export function getSnapshot(): Snapshot {
   return state;
 }
 
+/** Trims, collapses whitespace, and drops blanks and repeats. */
+export function cleanPeople(people: string[] | undefined): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of people ?? []) {
+    const name = normalizeName(raw);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue; // the same runner listed twice scores once
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
+}
+
 /** Empty podium slots are dropped, so a key in `results` means "has a result". */
 export function pruneResult(result: EventResult): EventResult | null {
   const cleaned: EventResult = {};
   for (const slot of ['first', 'second', 'third'] as const) {
     const placing = result[slot];
     if (placing?.teamId) {
-      const person = placing.person ? normalizeName(placing.person) : '';
+      const people = cleanPeople(placing.people);
       cleaned[slot] = {
         teamId: placing.teamId,
-        ...(person ? { person } : {}),
+        ...(people.length ? { people } : {}),
       };
     }
   }

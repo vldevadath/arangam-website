@@ -30,7 +30,8 @@ const desk = { passcode: v.string() };
 
 const placing = v.object({
   teamId: v.string(),
-  person: v.optional(v.string()),
+  // Everyone named in the placing — all four legs of a relay.
+  people: v.optional(v.array(v.string())),
 });
 
 const podium = v.array(v.number());
@@ -43,6 +44,7 @@ const eventFields = {
   note: v.optional(v.string()),
   overall: podium,
   individual: v.optional(podium),
+  crew: v.optional(v.number()),
 };
 
 /**
@@ -76,6 +78,7 @@ export const snapshot = query({
           note: e.note,
           overall: e.overall,
           individual: e.individual,
+          crew: e.crew,
         })),
       results: Object.fromEntries(
         results.map((r) => [r.eventId, { first: r.first, second: r.second, third: r.third }]),
@@ -179,6 +182,7 @@ export const updateEvent = mutation({
     overall: v.optional(podium),
     // Explicit null clears the individual points; undefined leaves them alone.
     individual: v.optional(v.union(podium, v.null())),
+    crew: v.optional(v.number()),
   },
   handler: async (ctx, { passcode, eventId, individual, ...patch }) => {
     assertDesk(passcode);

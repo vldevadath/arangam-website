@@ -26,6 +26,13 @@ export type MeetEvent = {
    * not count towards the individual championship.
    */
   individual?: Podium;
+  /**
+   * How many people share one placing. 1 for a race or a jump, 4 for a relay
+   * where the whole squad is named. Not the same as `squad`, which counts
+   * entries per batch — a 100 m has a squad of 2 but each placing is one
+   * runner. Absent means 1.
+   */
+  crew?: number;
 };
 
 export type Team = {
@@ -37,10 +44,14 @@ export type Team = {
   colorHex: string;
 };
 
-/** One podium slot of one event. `person` is recorded where it is known. */
+/**
+ * One podium slot of one event. `people` names everyone in it — one runner for
+ * a race, all four for a relay. Empty for a team game, where only the batch
+ * is recorded.
+ */
 export type Placing = {
   teamId: string;
-  person?: string;
+  people?: string[];
 };
 
 export type EventResult = {
