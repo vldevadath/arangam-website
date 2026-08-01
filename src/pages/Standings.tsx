@@ -1,11 +1,11 @@
 // src/pages/Standings.tsx
 // Five point tables, one page:
 //
+//   Overall            games points plus the athletics bonus; the championship
 //   Games              points as won, straight into the overall total
 //   Athletics · Men    decides 10 / 6 / 2 towards the overall total
 //   Athletics · Women  likewise
 //   Athletics          every athletics event, mixed included — the full picture
-//   Overall            games points plus the athletics bonus; the championship
 //
 // Each view ranks on its own points and traces them back through a ledger of
 // only its own events.
@@ -25,9 +25,15 @@ import {
 import type { MeetEvent } from '../data/types';
 import { useMeet } from '../hooks/useMeet';
 
-type View = 'games' | 'ath-men' | 'ath-women' | 'ath-all' | 'overall';
+type View = 'overall' | 'games' | 'ath-men' | 'ath-women' | 'ath-all';
 
 const VIEWS: ReadonlyArray<{ value: View; label: string; eyebrow: string; blurb: string }> = [
+  {
+    value: 'overall',
+    label: 'Overall',
+    eyebrow: 'Overall championship',
+    blurb: 'Games points as won, plus the 10 / 6 / 2 earned for topping the athletics tables.',
+  },
   {
     value: 'games',
     label: 'Games',
@@ -52,12 +58,6 @@ const VIEWS: ReadonlyArray<{ value: View; label: string; eyebrow: string; blurb:
     eyebrow: 'Athletics championship',
     blurb:
       'Every athletics event, mixed included. Shown for the full picture — the overall championship is fed by the men’s and women’s tables, not by this one.',
-  },
-  {
-    value: 'overall',
-    label: 'Overall',
-    eyebrow: 'Overall championship',
-    blurb: 'Games points as won, plus the 10 / 6 / 2 earned for topping the athletics tables.',
   },
 ];
 

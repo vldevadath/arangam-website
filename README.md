@@ -112,16 +112,8 @@ unchanged.
 
 ### GitHub Pages
 
-> **Auto-deploy is currently OFF.** The workflow is disabled, so pushing to
-> `main` publishes nothing. Deploy when you choose:
->
-> ```bash
-> gh workflow run "Deploy to GitHub Pages"     # one-off, while disabled
-> gh workflow enable "Deploy to GitHub Pages"  # back to deploying on push
-> ```
-
-`.github/workflows/deploy.yml` builds and publishes on every push to `main`
-when enabled. It is the only
+`.github/workflows/deploy.yml` builds and publishes on every push to `main`.
+Pause it with `gh workflow disable "Deploy to GitHub Pages"`. It is the only
 deployer — Pages is on the "GitHub Actions" build type and there is no `gh-pages` branch, so
 nothing races it.
 
@@ -142,8 +134,8 @@ bundle — see above.
 `netlify.toml` and `public/_redirects` are committed, so build command, publish directory and
 SPA routing need no configuration.
 
-Netlify has no git integration — it only ever deploys when you run the CLI, so
-there is nothing to switch off there.
+Netlify has **no git integration** — it publishes only when this command is
+run, so a push never updates it and it can drift behind Pages.
 
 ```bash
 npx netlify-cli deploy --build --prod
